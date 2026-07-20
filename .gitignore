@@ -34,6 +34,8 @@ Thumbs.db
 # Logs
 *.log
 
-# Docker
-data/
+# Data volume — keep the directory, ignore its contents (docker-compose mounts ./data:/data)
+data/*
+!data/.gitkeep
+
 CLAUDE.MD

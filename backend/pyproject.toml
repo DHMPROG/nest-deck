@@ -1,0 +1,21 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "nest-deck-backend"
+version = "0.1.0"
+description = "FastAPI relay backend for Nest Deck — a custom Stream Deck for the Google Nest Hub Max"
+requires-python = ">=3.11"
+dependencies = [
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.30",
+    "sqlmodel>=0.0.22",
+    "sse-starlette>=2.1",
+    "obsws-python>=1.7",
+    "spotipy>=2.24",
+    "pynput>=1.7",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["app"]
