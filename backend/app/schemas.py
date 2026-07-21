@@ -30,6 +30,8 @@ class PageCreate(BaseModel):
     color: str
     icon: str = "square"
     position: Optional[int] = None
+    rows: int = 3
+    cols: int = 5
 
 
 class PageUpdate(BaseModel):
@@ -37,6 +39,8 @@ class PageUpdate(BaseModel):
     color: Optional[str] = None
     icon: Optional[str] = None
     position: Optional[int] = None
+    rows: Optional[int] = None
+    cols: Optional[int] = None
 
 
 class PositionUpdate(BaseModel):

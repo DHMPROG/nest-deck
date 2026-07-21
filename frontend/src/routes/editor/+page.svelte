@@ -273,6 +273,35 @@
     }
   }
 
+  /** Resize the grid. Shrinking clears the tiles that fall outside. */
+  async function setGrid(rows: number, cols: number) {
+    if (!activePage) return;
+    const before = { rows: activePage.rows, cols: activePage.cols };
+    if (rows === before.rows && cols === before.cols) return;
+
+    const shrinking = rows < before.rows || cols < before.cols;
+    const lost = shrinking
+      ? slots.filter((s) => s.tile && (s.row >= rows || s.col >= cols)).length
+      : 0;
+
+    try {
+      await api.updatePage(activePage.id, { rows, cols });
+      await loadPages();
+      if (lost > 0) flash(`${lost} tuile${lost > 1 ? 's' : ''} retirée${lost > 1 ? 's' : ''}.`);
+      // Not undoable when it destroyed tiles — re-growing cannot restore them.
+      if (lost === 0) {
+        pushUndo('taille de la grille', async () => {
+          await api.updatePage(activePage.id, before);
+          await loadPages();
+        });
+      } else {
+        undoStack = [];
+      }
+    } catch (cause) {
+      fail(cause);
+    }
+  }
+
   async function setPageColor(color: string) {
     if (!activePage) return;
     const before = activePage.color;
@@ -637,6 +666,32 @@
             onchange={(event) => renamePage(event.currentTarget.value)}
             aria-label="Nom de la page"
           />
+          <!-- Grid size: 3-6 rows by 5-6 columns. -->
+          <div class="flex items-center gap-2 rounded-pill bg-black/[0.04] px-3 py-1.5">
+            <i class="ph ph-grid-four text-surface-muted" aria-hidden="true"></i>
+            <select
+              class="rounded-lg bg-transparent text-label"
+              value={activePage.rows}
+              onchange={(e) => setGrid(Number(e.currentTarget.value), activePage.cols)}
+              aria-label="Nombre de lignes"
+            >
+              {#each [3, 4, 5, 6] as n (n)}
+                <option value={n}>{n}</option>
+              {/each}
+            </select>
+            <span class="text-label text-surface-muted">×</span>
+            <select
+              class="rounded-lg bg-transparent text-label"
+              value={activePage.cols}
+              onchange={(e) => setGrid(activePage.rows, Number(e.currentTarget.value))}
+              aria-label="Nombre de colonnes"
+            >
+              {#each [5, 6] as n (n)}
+                <option value={n}>{n}</option>
+              {/each}
+            </select>
+          </div>
+
           <div class="flex items-center gap-2">
             {#each CATEGORY_TOKENS as token (token)}
               <button

@@ -8,8 +8,10 @@
 import type {
   Action,
   ActionType,
+  BrowseResult,
   Category,
   FireResult,
+  InstalledApp,
   Page,
   Profile,
   Tile,
@@ -86,7 +88,14 @@ export const api = {
   }) => request<Page>('/pages', { method: 'POST', ...json(body) }),
   updatePage: (
     id: string,
-    body: { name?: string; color?: string; icon?: string; position?: number }
+    body: {
+      name?: string;
+      color?: string;
+      icon?: string;
+      position?: number;
+      rows?: number;
+      cols?: number;
+    }
   ) => request<Page>(`/pages/${id}`, { method: 'PATCH', ...json(body) }),
   movePage: (id: string, position: number) =>
     request<Page>(`/pages/${id}/position`, { method: 'PATCH', ...json({ position }) }),
@@ -152,6 +161,14 @@ export const api = {
     }
   ) => request<Action>(`/actions/${id}`, { method: 'PATCH', ...json(body) }),
   deleteAction: (id: string) => request<void>(`/actions/${id}`, { method: 'DELETE' }),
+
+  /** Host introspection, used by the launcher picker in the Editor. */
+  listApps: (q?: string) =>
+    request<InstalledApp[]>(`/system/apps${q ? `?q=${encodeURIComponent(q)}` : ''}`),
+  browse: (path?: string) =>
+    request<BrowseResult>(
+      `/system/browse${path ? `?path=${encodeURIComponent(path)}` : ''}`
+    ),
 
   // -- fire -----------------------------------------------------------------
   fire: (tileId: string) =>

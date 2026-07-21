@@ -5,7 +5,7 @@
   import Tile from './Tile.svelte';
   import { deck } from '$lib/stores/profile.svelte';
   import { editMode } from '$lib/stores/editMode.svelte';
-  import { categoryPalette, GRID } from '$lib/theme';
+  import { categoryPalette, gridOf } from '$lib/theme';
   import type { TileSlot } from '$lib/types';
 
   interface Item {
@@ -18,6 +18,9 @@
   const SWIPE_MAX_Y = 50;
 
   const palette = $derived(categoryPalette(deck.activePage?.color));
+  const grid = $derived(gridOf(deck.activePage));
+  /** Denser grids need smaller icons and text to stay legible. */
+  const compact = $derived(grid.rows > 3 || grid.cols > 5);
 
   /** Identity follows the tile, so dnd tracks content rather than position. */
   const idOf = (slot: TileSlot) =>
@@ -100,7 +103,7 @@
   >
     <div
       class="grid"
-      style="grid-template-columns: repeat({GRID.cols}, 1fr); grid-template-rows: repeat({GRID.rows}, 1fr)"
+      style="grid-template-columns: repeat({grid.cols}, 1fr); grid-template-rows: repeat({grid.rows}, 1fr)"
       use:dndzone={{
         items,
         dragDisabled: !editMode.active,
@@ -113,6 +116,7 @@
     >
       {#each items as item, index (item.id)}
         <Tile
+          {compact}
           slot={item.slot}
           {index}
           {palette}

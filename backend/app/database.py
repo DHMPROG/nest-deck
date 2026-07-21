@@ -31,12 +31,45 @@ engine = create_engine(
 )
 
 
+def _add_missing_columns() -> None:
+    """Add columns that exist on the models but not yet in the file.
+
+    `create_all` only creates missing *tables*, so a database from an earlier
+    version keeps its old shape and every query against a new column fails.
+    This is a deliberately small stand-in for a migration tool: additive only,
+    with a default, which covers every schema change made so far.
+    """
+    from sqlalchemy import inspect, text
+
+    inspector = inspect(engine)
+    existing_tables = set(inspector.get_table_names())
+
+    with engine.begin() as connection:
+        for table in SQLModel.metadata.sorted_tables:
+            if table.name not in existing_tables:
+                continue  # create_all will handle it
+            present = {c["name"] for c in inspector.get_columns(table.name)}
+            for column in table.columns:
+                if column.name in present or column.default is None:
+                    continue
+                default = column.default.arg
+                literal = f"'{default}'" if isinstance(default, str) else int(default)
+                connection.execute(
+                    text(
+                        f'ALTER TABLE "{table.name}" '
+                        f'ADD COLUMN "{column.name}" {column.type} '
+                        f"NOT NULL DEFAULT {literal}"
+                    )
+                )
+
+
 def init_db() -> None:
-    """Create all tables. Safe to call on every boot."""
+    """Create all tables, then patch in any newly added column."""
     # Importing models registers them on SQLModel.metadata.
     from . import models  # noqa: F401
 
     SQLModel.metadata.create_all(engine)
+    _add_missing_columns()
 
 
 def get_session() -> Iterator[Session]:

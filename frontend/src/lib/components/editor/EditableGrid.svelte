@@ -1,7 +1,7 @@
 <script lang="ts">
   import { dndzone } from 'svelte-dnd-action';
   import EditableTile from './EditableTile.svelte';
-  import { categoryPalette, GRID } from '$lib/theme';
+  import { categoryPalette, gridOf } from '$lib/theme';
   import type { Page, TileSlot } from '$lib/types';
 
   interface Props {
@@ -32,6 +32,7 @@
   }
 
   const palette = $derived(categoryPalette(page?.color));
+  const grid = $derived(gridOf(page));
 
   const idOf = (slot: TileSlot) =>
     slot.tile ? slot.tile.id : `empty-${slot.row}-${slot.col}`;
@@ -62,7 +63,7 @@
 
 <div
   class="grid aspect-[1280/660] w-full gap-4 rounded-container bg-black/[0.02] p-5"
-  style="grid-template-columns: repeat({GRID.cols}, 1fr); grid-template-rows: repeat({GRID.rows}, 1fr)"
+  style="grid-template-columns: repeat({grid.cols}, 1fr); grid-template-rows: repeat({grid.rows}, 1fr)"
   use:dndzone={{ items, flipDurationMs: 160, dropTargetStyle: {}, type: 'editor-tiles' }}
   onconsider={handleConsider}
   onfinalize={handleFinalize}

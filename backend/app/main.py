@@ -10,7 +10,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from . import events as events_module
 from .database import DATABASE_URL, init_db
-from .routes import actions, categories, events, fire, pages, profiles, tiles
+from .routes import actions, categories, events, fire, pages, profiles, system, tiles
 from .seed import seed
 
 
@@ -40,7 +40,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-for module in (profiles, pages, tiles, actions, categories, fire, events):
+for module in (profiles, pages, tiles, actions, categories, fire, events, system):
     app.include_router(module.router, prefix="/api")
 
 

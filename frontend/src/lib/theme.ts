@@ -49,7 +49,21 @@ export function categoryPalette(value: string | null | undefined) {
 }
 
 /**
- * Grid geometry, mirrored from the backend (`models.GRID_ROWS` / `GRID_COLS`).
- * The Deck is always 5 columns x 3 rows on a 1280x800 panel.
+ * Grid geometry, mirrored from the backend. 5x3 is the default that fits the
+ * Nest Hub's 1280x800 panel comfortably; each page can go up to 6x6, past
+ * which tiles stop being reliable touch targets.
  */
-export const GRID = { rows: 3, cols: 5, slots: 15 } as const;
+export const GRID = {
+  rows: 3,
+  cols: 5,
+  slots: 15,
+  minRows: 3,
+  maxRows: 6,
+  minCols: 5,
+  maxCols: 6
+} as const;
+
+/** A page's grid, falling back to the default when it is not loaded yet. */
+export function gridOf(page: { rows?: number; cols?: number } | null | undefined) {
+  return { rows: page?.rows ?? GRID.rows, cols: page?.cols ?? GRID.cols };
+}

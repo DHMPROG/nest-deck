@@ -6,8 +6,15 @@
    * Not in the spec's component list: the catalog was frozen at seed time, and
    * defining your own macros and launchers is the whole point of the deck.
    */
+  import { api } from '$lib/services/api';
   import { CATEGORY_TOKENS, categoryPalette, tokens } from '$lib/theme';
-  import type { Action, ActionType, Category } from '$lib/types';
+  import type {
+    Action,
+    ActionType,
+    BrowseResult,
+    Category,
+    InstalledApp
+  } from '$lib/types';
 
   interface Props {
     open: boolean;
@@ -69,6 +76,55 @@
   let httpMethod = $state('GET');
 
   const current = $derived(TYPES.find((t) => t.value === kind));
+
+  // -- launcher picker -------------------------------------------------------
+  let apps = $state<InstalledApp[]>([]);
+  let browse = $state<BrowseResult | null>(null);
+  let browsing = $state(false);
+
+  /** Filter the installed list by whatever is typed, so it narrows as you go. */
+  const matchingApps = $derived(
+    (() => {
+      const needle = launch.trim().toLowerCase();
+      const pool = needle
+        ? apps.filter(
+            (a) => a.name.toLowerCase().includes(needle) || a.path.toLowerCase().includes(needle)
+          )
+        : apps;
+      return pool.slice(0, 40);
+    })()
+  );
+
+  // Load the app list the first time the launcher type is selected.
+  $effect(() => {
+    if (!open || kind !== 'launcher' || apps.length > 0) return;
+    void (async () => {
+      try {
+        apps = await api.listApps();
+      } catch {
+        apps = [];
+      }
+    })();
+  });
+
+  function pickApp(path: string) {
+    launch = path;
+    browsing = false;
+    // A path is unambiguous, so prefill the label from the file name.
+    if (!label.trim()) {
+      const base = path.split(/[\\/]/).pop() ?? '';
+      label = base.replace(/\.(lnk|exe|bat|cmd|url|com)$/i, '');
+    }
+  }
+
+  async function loadBrowse(path?: string) {
+    browsing = true;
+    try {
+      browse = await api.browse(path);
+    } catch (cause) {
+      error = cause instanceof Error ? cause.message : String(cause);
+    }
+  }
 
   // Re-seed whenever a different action (or "new") is opened.
   $effect(() => {
@@ -298,14 +354,83 @@
             </small>
           </label>
         {:else if kind === 'launcher'}
-          <label class="field">
-            <span>Programme ou commande</span>
-            <input bind:value={launch} placeholder="notepad.exe" />
+          <div class="field">
+            <span>Application</span>
+            <input
+              bind:value={launch}
+              placeholder="Cherchez une application installée…"
+              oninput={() => (browsing = false)}
+            />
+
+            {#if browsing}
+              <div class="picker">
+                <div class="picker-head">
+                  <button
+                    type="button"
+                    class="crumb"
+                    disabled={!browse?.parent}
+                    onclick={() => loadBrowse(browse?.parent ?? undefined)}
+                    aria-label="Dossier parent"
+                    title="Dossier parent"
+                  >
+                    <i class="ph ph-arrow-up" aria-hidden="true"></i>
+                  </button>
+                  <span class="crumb-path">{browse?.path ?? 'Emplacements'}</span>
+                  <button type="button" class="crumb" onclick={() => (browsing = false)}>
+                    Liste des applis
+                  </button>
+                </div>
+                <ul class="picker-list">
+                  {#each browse?.entries ?? [] as entry (entry.path)}
+                    <li>
+                      <button
+                        type="button"
+                        onclick={() =>
+                          entry.kind === 'dir' ? loadBrowse(entry.path) : pickApp(entry.path)}
+                      >
+                        <i
+                          class="ph {entry.kind === 'dir' ? 'ph-folder' : 'ph-app-window'}"
+                          aria-hidden="true"
+                        ></i>
+                        <span class="truncate">{entry.name}</span>
+                      </button>
+                    </li>
+                  {:else}
+                    <li class="empty-hint">Rien à lancer ici.</li>
+                  {/each}
+                </ul>
+              </div>
+            {:else}
+              <div class="picker">
+                <ul class="picker-list">
+                  {#each matchingApps as app (app.path)}
+                    <li>
+                      <button type="button" onclick={() => pickApp(app.path)}>
+                        <i class="ph ph-app-window" aria-hidden="true"></i>
+                        <span class="truncate">{app.name}</span>
+                      </button>
+                    </li>
+                  {:else}
+                    <li class="empty-hint">
+                      {apps.length === 0
+                        ? 'Recherche des applications installées…'
+                        : 'Aucune application ne correspond.'}
+                    </li>
+                  {/each}
+                </ul>
+                <button type="button" class="browse-btn" onclick={() => loadBrowse()}>
+                  <i class="ph ph-folder-open" aria-hidden="true"></i>
+                  Parcourir les fichiers…
+                </button>
+              </div>
+            {/if}
+
             <small>
-              S’exécute sur la machine qui fait tourner le backend. Un chemin avec
-              des espaces doit être entre guillemets.
+              Choisissez dans la liste, ou tapez un nom : il est résolu contre le
+              menu Démarrer, donc <code>steam</code> suffit. Le programme démarre
+              sur la machine qui fait tourner le backend.
             </small>
-          </label>
+          </div>
         {:else if kind === 'open' || kind === 'fetch'}
           <label class="field">
             <span>URL</span>
@@ -491,6 +616,96 @@
     border-radius: 4px;
     background: rgb(0 0 0 / 0.05);
     font-size: 12px;
+  }
+
+  /* Launcher picker: a short scrollable list beats typing a program name. */
+  .picker {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 6px;
+    border: 1px solid rgb(0 0 0 / 0.1);
+    border-radius: 12px;
+    background: rgb(0 0 0 / 0.02);
+  }
+
+  .picker-head {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .crumb {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 8px;
+    border-radius: 8px;
+    background: rgb(0 0 0 / 0.05);
+    font-size: 12px;
+  }
+
+  .crumb:disabled {
+    opacity: 0.4;
+  }
+
+  .crumb-path {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    direction: rtl; /* keep the deepest folder visible when it overflows */
+    font-size: 12px;
+    font-weight: 400;
+    color: #8e8e93;
+  }
+
+  .picker-list {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    max-height: 190px;
+    overflow-y: auto;
+  }
+
+  .picker-list button {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    padding: 7px 8px;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 400;
+    text-align: left;
+  }
+
+  .picker-list button:hover {
+    background: rgb(0 0 0 / 0.06);
+  }
+
+  .empty-hint {
+    padding: 8px;
+    font-size: 13px;
+    font-weight: 400;
+    color: #8e8e93;
+  }
+
+  .browse-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 8px;
+    border-radius: 8px;
+    border: 1px dashed rgb(0 0 0 / 0.15);
+    font-size: 13px;
+    color: #8e8e93;
+  }
+
+  .browse-btn:hover {
+    background: rgb(0 0 0 / 0.04);
   }
 
   /* Set apart so it is obvious these fields create something new. */

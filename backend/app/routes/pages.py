@@ -1,4 +1,4 @@
-"""Page CRUD + the 15-slot tile grid of a page."""
+"""Page CRUD + the tile grid of a page."""
 
 from __future__ import annotations
 
@@ -7,7 +7,7 @@ from sqlmodel import Session, select
 
 from ..database import get_session
 from ..events import broadcast
-from ..models import GRID_COLS, GRID_ROWS, Page, Profile, Tile
+from ..models import MAX_COLS, MAX_ROWS, MIN_COLS, MIN_ROWS, Page, Profile, Tile
 from ..schemas import PageCreate, PageUpdate, PositionUpdate, serialize_slot
 
 router = APIRouter(tags=["pages"])
@@ -49,6 +49,8 @@ def create_page(body: PageCreate, session: Session = Depends(get_session)):
         color=body.color,
         icon=body.icon,
         position=position,
+        rows=body.rows,
+        cols=body.cols,
     )
     session.add(page)
     session.commit()
@@ -66,7 +68,23 @@ def update_page(
     if page is None:
         raise HTTPException(404, "page not found")
 
-    for field, value in body.model_dump(exclude_unset=True).items():
+    data = body.model_dump(exclude_unset=True)
+
+    rows = data.get("rows", page.rows)
+    cols = data.get("cols", page.cols)
+    if not (MIN_ROWS <= rows <= MAX_ROWS):
+        raise HTTPException(422, f"rows must be between {MIN_ROWS} and {MAX_ROWS}")
+    if not (MIN_COLS <= cols <= MAX_COLS):
+        raise HTTPException(422, f"cols must be between {MIN_COLS} and {MAX_COLS}")
+
+    # Shrinking leaves tiles outside the new bounds unreachable, so clear them
+    # rather than keeping invisible rows that would resurface on a re-grow.
+    if rows < page.rows or cols < page.cols:
+        for tile in session.exec(select(Tile).where(Tile.page_id == page.id)).all():
+            if tile.row >= rows or tile.col >= cols:
+                session.delete(tile)
+
+    for field, value in data.items():
         setattr(page, field, value)
 
     session.add(page)
@@ -122,8 +140,9 @@ def delete_page(page_id: str, session: Session = Depends(get_session)):
 
 @router.get("/pages/{page_id}/tiles")
 def list_page_tiles(page_id: str, session: Session = Depends(get_session)):
-    """Always returns the full 5x3 grid — 15 slots, empty ones with tile=null."""
-    if session.get(Page, page_id) is None:
+    """Returns the page's whole grid — rows x cols slots, empty ones as null."""
+    page = session.get(Page, page_id)
+    if page is None:
         raise HTTPException(404, "page not found")
 
     tiles = session.exec(select(Tile).where(Tile.page_id == page_id)).all()
@@ -131,6 +150,6 @@ def list_page_tiles(page_id: str, session: Session = Depends(get_session)):
 
     return [
         serialize_slot(session, row, col, by_slot.get((row, col)))
-        for row in range(GRID_ROWS)
-        for col in range(GRID_COLS)
+        for row in range(page.rows)
+        for col in range(page.cols)
     ]

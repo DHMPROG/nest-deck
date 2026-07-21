@@ -16,9 +16,11 @@
     onremove?: (slot: TileSlot) => void;
     /** An empty slot was tapped: pick the action that fills it. */
     onchoose?: (slot: TileSlot) => void;
+    /** Denser grid: shrink the icon and text so a 6x6 stays legible. */
+    compact?: boolean;
   }
 
-  let { slot, index, palette, onremove, onchoose }: Props = $props();
+  let { slot, index, palette, onremove, onchoose, compact = false }: Props = $props();
 
   type Phase = 'idle' | 'pending' | 'ok' | 'error';
   let phase = $state<Phase>('idle');
@@ -127,6 +129,7 @@
 <div
   class="cell tile-in"
   class:wiggle={editMode.active}
+  class:compact
   style="--i: {index}; --bg: {palette.bg}; --text: {palette.text}; --accent: {palette.accent}; --accent-deep: {palette.accentDeep}"
 >
   {#if slot.tile}
@@ -217,6 +220,24 @@
     font-size: 64px;
     line-height: 1;
     color: var(--accent-deep);
+  }
+
+  /* 6x6 leaves roughly half the height per tile, so scale the contents down
+     rather than letting the icon push the label out. */
+  .compact .icon {
+    font-size: 40px;
+  }
+
+  .compact .tile {
+    gap: 0.25rem;
+  }
+
+  .compact :global(.text-tile-title) {
+    font-size: 14px;
+  }
+
+  .compact .subtitle {
+    display: none;
   }
 
   .subtitle {

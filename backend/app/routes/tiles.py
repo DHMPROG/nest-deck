@@ -9,17 +9,18 @@ from sqlmodel import Session, select
 
 from ..database import get_session
 from ..events import broadcast
-from ..models import GRID_COLS, GRID_ROWS, Action, Page, Tile
+from ..models import Action, Page, Tile
 from ..schemas import TileCreate, TileUpdate, serialize_tile
 
 router = APIRouter(tags=["tiles"])
 
 
-def _validate_slot(row: int, col: int) -> None:
-    if not (0 <= row < GRID_ROWS):
-        raise HTTPException(422, f"row must be between 0 and {GRID_ROWS - 1}")
-    if not (0 <= col < GRID_COLS):
-        raise HTTPException(422, f"col must be between 0 and {GRID_COLS - 1}")
+def _validate_slot(page: Page, row: int, col: int) -> None:
+    """Bounds come from the page, whose grid is between 3x5 and 6x6."""
+    if not (0 <= row < page.rows):
+        raise HTTPException(422, f"row must be between 0 and {page.rows - 1}")
+    if not (0 <= col < page.cols):
+        raise HTTPException(422, f"col must be between 0 and {page.cols - 1}")
 
 
 def _tile_at(session: Session, page_id: str, row: int, col: int) -> Optional[Tile]:
@@ -31,9 +32,10 @@ def _tile_at(session: Session, page_id: str, row: int, col: int) -> Optional[Til
 @router.post("/tiles", status_code=201)
 def place_tile(body: TileCreate, session: Session = Depends(get_session)):
     """Place an action on a slot. Placing onto an occupied slot replaces it."""
-    if session.get(Page, body.page_id) is None:
+    page = session.get(Page, body.page_id)
+    if page is None:
         raise HTTPException(404, "page not found")
-    _validate_slot(body.row, body.col)
+    _validate_slot(page, body.row, body.col)
     if body.action_id is not None and session.get(Action, body.action_id) is None:
         raise HTTPException(404, "action not found")
 
@@ -81,7 +83,10 @@ def update_tile(
     new_row = data.get("row", tile.row)
     new_col = data.get("col", tile.col)
     if (new_row, new_col) != (tile.row, tile.col):
-        _validate_slot(new_row, new_col)
+        page = session.get(Page, tile.page_id)
+        if page is None:
+            raise HTTPException(404, "page not found")
+        _validate_slot(page, new_row, new_col)
         origin_row, origin_col = tile.row, tile.col
         occupant = _tile_at(session, tile.page_id, new_row, new_col)
 

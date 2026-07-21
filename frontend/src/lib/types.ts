@@ -49,6 +49,9 @@ export interface Page {
   color: CategoryToken | string;
   position: number;
   icon: string;
+  /** Grid geometry, per page: 3-6 rows by 5-6 columns. */
+  rows: number;
+  cols: number;
 }
 
 export interface Tile {
@@ -68,6 +71,24 @@ export interface TileSlot {
   row: number;
   col: number;
   tile: Tile | null;
+}
+
+/** An application discovered on the host, for the launcher picker. */
+export interface InstalledApp {
+  name: string;
+  path: string;
+}
+
+export interface BrowseEntry {
+  name: string;
+  path: string;
+  kind: 'dir' | 'file';
+}
+
+export interface BrowseResult {
+  path: string | null;
+  parent: string | null;
+  entries: BrowseEntry[];
 }
 
 export interface FireResult {

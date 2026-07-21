@@ -71,6 +71,9 @@ class Page(SQLModel, table=True):
     color: str
     position: int = 0
     icon: str = "square"
+    # Grid geometry is per page, between MIN_ROWS x MIN_COLS and MAX_*.
+    rows: int = Field(default=3)
+    cols: int = Field(default=5)
 
 
 class Tile(SQLModel, table=True):
@@ -87,6 +90,10 @@ class Tile(SQLModel, table=True):
     custom_icon: Optional[str] = None
 
 
-# Grid geometry — the Deck is always 5 columns x 3 rows.
+# Grid geometry. 5x3 is the default that fits the Nest Hub's 1280x800 panel
+# comfortably; anything denser is allowed up to 6x6, past which the tiles stop
+# being reliable touch targets.
 GRID_ROWS = 3
 GRID_COLS = 5
+MIN_ROWS, MAX_ROWS = 3, 6
+MIN_COLS, MAX_COLS = 5, 6
