@@ -48,7 +48,7 @@
     if (from >= 0 && to >= 0 && from !== to) void deck.swapSlots(from, to);
   }
 
-  // -- add / remove in edit mode --------------------------------------------
+  // -- choose / remove the action on a slot ---------------------------------
   let pickerFor = $state<TileSlot | null>(null);
 
   function openPicker(slot: TileSlot) {
@@ -116,7 +116,7 @@
           slot={item.slot}
           {index}
           {palette}
-          onadd={openPicker}
+          onchoose={openPicker}
           onremove={remove}
         />
       {/each}

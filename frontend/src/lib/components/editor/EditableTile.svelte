@@ -9,11 +9,14 @@
     onedit: (slot: TileSlot) => void;
     onremove: (slot: TileSlot) => void;
     onduplicate: (slot: TileSlot) => void;
+    /** Open the action's own settings — what the button actually does. */
+    onconfigure: (slot: TileSlot) => void;
     /** An action was dropped from the catalog onto this slot. */
     ondropaction: (slot: TileSlot, actionId: string) => void;
   }
 
-  let { slot, palette, onedit, onremove, onduplicate, ondropaction }: Props = $props();
+  let { slot, palette, onedit, onremove, onduplicate, onconfigure, ondropaction }: Props =
+    $props();
 
   let menuOpen = $state(false);
   let dragOver = $state(false);
@@ -83,6 +86,18 @@
               }}
             >
               <i class="ph ph-pencil-simple" aria-hidden="true"></i> Modifier
+            </button>
+          </li>
+          <li>
+            <button
+              type="button"
+              onclick={() => {
+                menuOpen = false;
+                onconfigure(slot);
+              }}
+            >
+              <i class="ph ph-sliders-horizontal" aria-hidden="true"></i>
+              Configurer l’action
             </button>
           </li>
           <li>

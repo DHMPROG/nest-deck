@@ -14,11 +14,11 @@
     palette: (typeof tokens)['category'][keyof (typeof tokens)['category']];
     /** Edit mode: the ✕ badge was tapped. */
     onremove?: (slot: TileSlot) => void;
-    /** Edit mode: an empty slot was tapped. */
-    onadd?: (slot: TileSlot) => void;
+    /** An empty slot was tapped: pick the action that fills it. */
+    onchoose?: (slot: TileSlot) => void;
   }
 
-  let { slot, index, palette, onremove, onadd }: Props = $props();
+  let { slot, index, palette, onremove, onchoose }: Props = $props();
 
   type Phase = 'idle' | 'pending' | 'ok' | 'error';
   let phase = $state<Phase>('idle');
@@ -77,12 +77,12 @@
 
     if (!slot.tile) {
       // Adding is a normal action — no need to be in edit mode first.
-      if (wasTap) onadd?.(slot);
+      if (wasTap) onchoose?.(slot);
       return;
     }
 
-    // On a filled tile, edit mode means dragging and the ✕ badge; a tap there
-    // must not fire the action.
+    // On a filled tile, edit mode means dragging and the ✕ badge. Changing what
+    // a tile does is an Editor job — the Hub has no keyboard to configure one.
     if (editMode.active) return;
     if (wasTap) void fire();
   }

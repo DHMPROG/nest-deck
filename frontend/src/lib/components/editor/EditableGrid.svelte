@@ -11,11 +11,20 @@
     onedit: (slot: TileSlot) => void;
     onremove: (slot: TileSlot) => void;
     onduplicate: (slot: TileSlot) => void;
+    onconfigure: (slot: TileSlot) => void;
     ondropaction: (slot: TileSlot, actionId: string) => void;
   }
 
-  let { page, slots, onswap, onedit, onremove, onduplicate, ondropaction }: Props =
-    $props();
+  let {
+    page,
+    slots,
+    onswap,
+    onedit,
+    onremove,
+    onduplicate,
+    onconfigure,
+    ondropaction
+  }: Props = $props();
 
   interface Item {
     id: string;
@@ -65,6 +74,7 @@
       {onedit}
       {onremove}
       {onduplicate}
+      {onconfigure}
       {ondropaction}
     />
   {/each}

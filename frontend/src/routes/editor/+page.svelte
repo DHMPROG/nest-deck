@@ -368,6 +368,19 @@
     actionModalOpen = true;
   }
 
+  /** Configure the action sitting on a placed tile. */
+  function configureTileAction(slot: TileSlot) {
+    const target = actions.find((a) => a.id === slot.tile?.action_id);
+    if (target) openActionEditor(target);
+  }
+
+  function configureActionById(actionId: string) {
+    const target = actions.find((a) => a.id === actionId);
+    if (!target) return;
+    editingSlot = null; // close the tile modal first
+    openActionEditor(target);
+  }
+
   async function saveAction(
     payload: Parameters<typeof api.createAction>[0] & {
       newCategory?: { name: string; color: string };
@@ -647,6 +660,7 @@
           onedit={(slot) => (editingSlot = slot)}
           onremove={removeTile}
           onduplicate={duplicateTile}
+          onconfigure={configureTileAction}
           ondropaction={placeAction}
         />
 
@@ -704,5 +718,6 @@
   {actions}
   pageColor={activePage?.color ?? 'pc'}
   onsave={saveTileEdit}
+  onconfigure={configureActionById}
   oncancel={() => (editingSlot = null)}
 />

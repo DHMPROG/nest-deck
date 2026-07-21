@@ -13,10 +13,13 @@
       custom_label?: string | null;
       custom_icon?: string | null;
     }) => void;
+    /** Jump to the action's own settings (what the button actually does). */
+    onconfigure: (actionId: string) => void;
     oncancel: () => void;
   }
 
-  let { slot, categories, actions, pageColor, onsave, oncancel }: Props = $props();
+  let { slot, categories, actions, pageColor, onsave, onconfigure, oncancel }: Props =
+    $props();
 
   let actionId = $state('');
   let label = $state('');
@@ -121,6 +124,17 @@
             {/each}
           </select>
         </label>
+
+        {#if actionId}
+          <button type="button" class="configure" onclick={() => onconfigure(actionId)}>
+            <i class="ph ph-sliders-horizontal" aria-hidden="true"></i>
+            <span>
+              Configurer « {selected?.label ?? 'cette action'} »
+              <small>Modifier ce que fait le bouton (macro, logiciel, URL…)</small>
+            </span>
+            <i class="ph ph-caret-right" aria-hidden="true"></i>
+          </button>
+        {/if}
 
         <label class="field">
           <span>Libellé personnalisé</span>
@@ -286,6 +300,36 @@
 
   .swatch.on {
     border-color: rgb(0 0 0 / 0.35);
+  }
+
+  /* Sends you to the action itself — a different object from the tile, so it
+     is styled as a link out rather than another field. */
+  .configure {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    padding: 10px 12px;
+    border-radius: 14px;
+    background: rgb(0 0 0 / 0.04);
+    font-size: 13px;
+    font-weight: 600;
+    text-align: left;
+  }
+
+  .configure:hover {
+    background: rgb(0 0 0 / 0.07);
+  }
+
+  .configure span {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .configure small {
+    display: block;
+    font-weight: 400;
+    color: #8e8e93;
   }
 
   .actions {
