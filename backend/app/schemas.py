@@ -43,6 +43,19 @@ class PositionUpdate(BaseModel):
     position: int
 
 
+class CategoryCreate(BaseModel):
+    name: str
+    # One of the five design tokens; the Deck falls back to `pc` if unknown.
+    color: str = "pc"
+    icon: str = "folder"
+
+
+class CategoryUpdate(BaseModel):
+    name: Optional[str] = None
+    color: Optional[str] = None
+    icon: Optional[str] = None
+
+
 class ActionCreate(BaseModel):
     category_id: str
     label: str

@@ -80,6 +80,9 @@
       profile_activated: () => void load(),
       action_updated: async () => {
         actions = await api.listActions();
+      },
+      category_updated: async () => {
+        categories = await api.listCategories();
       }
     });
   });
@@ -365,11 +368,22 @@
     actionModalOpen = true;
   }
 
-  async function saveAction(payload: Parameters<typeof api.createAction>[0]) {
+  async function saveAction(
+    payload: Parameters<typeof api.createAction>[0] & {
+      newCategory?: { name: string; color: string };
+    }
+  ) {
     const target = editingAction;
     try {
-      if (target) await api.updateAction(target.id, payload);
-      else await api.createAction(payload);
+      const { newCategory, ...body } = payload;
+      if (newCategory) {
+        // Create the category first, then file the action under it.
+        const created = await api.createCategory(newCategory);
+        body.category_id = created.id;
+        categories = await api.listCategories();
+      }
+      if (target) await api.updateAction(target.id, body);
+      else await api.createAction(body);
       actions = await api.listActions();
       actionModalOpen = false;
       editingAction = null;

@@ -6,7 +6,7 @@
    * Not in the spec's component list: the catalog was frozen at seed time, and
    * defining your own macros and launchers is the whole point of the deck.
    */
-  import { CATEGORY_TOKENS, categoryPalette } from '$lib/theme';
+  import { CATEGORY_TOKENS, categoryPalette, tokens } from '$lib/theme';
   import type { Action, ActionType, Category } from '$lib/types';
 
   interface Props {
@@ -21,6 +21,8 @@
       type: ActionType;
       endpoint: string | null;
       params: Record<string, unknown>;
+      /** Set instead of category_id when a new category should be created. */
+      newCategory?: { name: string; color: string };
     }) => void;
     ondelete?: (action: Action) => void;
     onclose: () => void;
@@ -43,7 +45,12 @@
   const MEETING_COMMANDS = ['mute', 'camera', 'hand', 'chat', 'share', 'leave'];
   const SPOTIFY_COMMANDS = ['toggle', 'play', 'pause', 'next', 'previous', 'volume', 'shuffle'];
 
+  /** Sentinel value of the "create a category" entry in the dropdown. */
+  const NEW_CATEGORY = '__new__';
+
   let categoryId = $state('');
+  let newCategoryName = $state('');
+  let newCategoryColor = $state<string>(CATEGORY_TOKENS[0]);
   let label = $state('');
   let icon = $state('lightning');
   let kind = $state<ActionType>('pc');
@@ -86,6 +93,8 @@
       httpMethod = typeof p.method === 'string' ? p.method : 'GET';
     } else {
       categoryId = categories[0]?.id ?? '';
+      newCategoryName = '';
+      newCategoryColor = CATEGORY_TOKENS[0];
       label = '';
       icon = 'lightning';
       kind = 'pc';
@@ -156,6 +165,10 @@
       error = 'Choisissez une catégorie.';
       return;
     }
+    if (categoryId === NEW_CATEGORY && !newCategoryName.trim()) {
+      error = 'Donnez un nom à la nouvelle catégorie.';
+      return;
+    }
     if ((kind === 'fetch' || kind === 'open') && !endpoint.trim()) {
       error = 'Indiquez une URL.';
       return;
@@ -165,12 +178,16 @@
     if (params === null) return;
 
     onsave({
-      category_id: categoryId,
+      category_id: categoryId === NEW_CATEGORY ? '' : categoryId,
       label: label.trim(),
       icon: icon.trim() || 'lightning',
       type: kind,
       endpoint: endpoint.trim() || null,
-      params
+      params,
+      newCategory:
+        categoryId === NEW_CATEGORY
+          ? { name: newCategoryName.trim(), color: newCategoryColor }
+          : undefined
     });
   }
 </script>
@@ -221,6 +238,7 @@
               {#each [...categories].sort((a, b) => CATEGORY_TOKENS.indexOf(a.color as never) - CATEGORY_TOKENS.indexOf(b.color as never)) as category (category.id)}
                 <option value={category.id}>{category.name}</option>
               {/each}
+              <option value={NEW_CATEGORY}>＋ Nouvelle catégorie…</option>
             </select>
           </label>
 
@@ -229,6 +247,34 @@
             <input bind:value={icon} placeholder="ex. keyboard" />
           </label>
         </div>
+
+        {#if categoryId === NEW_CATEGORY}
+          <div class="new-cat">
+            <label class="field">
+              <span>Nom de la nouvelle catégorie</span>
+              <input bind:value={newCategoryName} placeholder="Ex. Domotique" />
+            </label>
+            <div class="field">
+              <span>Couleur</span>
+              <div class="swatches">
+                {#each CATEGORY_TOKENS as token (token)}
+                  <button
+                    type="button"
+                    class="swatch"
+                    class:on={newCategoryColor === token}
+                    style="background: {tokens.category[token].accent}"
+                    onclick={() => (newCategoryColor = token)}
+                    aria-label={token}
+                  ></button>
+                {/each}
+              </div>
+              <small>
+                La couleur reprend l’un des cinq tons du deck — c’est celle des
+                pastilles du catalogue.
+              </small>
+            </div>
+          </div>
+        {/if}
 
         <label class="field">
           <span>Type d’action</span>
@@ -445,6 +491,32 @@
     border-radius: 4px;
     background: rgb(0 0 0 / 0.05);
     font-size: 12px;
+  }
+
+  /* Set apart so it is obvious these fields create something new. */
+  .new-cat {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding: 14px;
+    border-radius: 16px;
+    background: rgb(0 0 0 / 0.03);
+  }
+
+  .swatches {
+    display: flex;
+    gap: 8px;
+  }
+
+  .swatch {
+    width: 28px;
+    height: 28px;
+    border-radius: 999px;
+    border: 3px solid transparent;
+  }
+
+  .swatch.on {
+    border-color: rgb(0 0 0 / 0.35);
   }
 
   .error {

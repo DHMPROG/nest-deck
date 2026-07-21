@@ -117,6 +117,12 @@ export const api = {
 
   // -- catalog --------------------------------------------------------------
   listCategories: () => request<Category[]>('/categories'),
+  createCategory: (body: { name: string; color?: string; icon?: string }) =>
+    request<Category>('/categories', { method: 'POST', ...json(body) }),
+  updateCategory: (id: string, body: { name?: string; color?: string; icon?: string }) =>
+    request<Category>(`/categories/${id}`, { method: 'PATCH', ...json(body) }),
+  deleteCategory: (id: string) =>
+    request<void>(`/categories/${id}`, { method: 'DELETE' }),
   listActions: (opts: { category?: string; q?: string } = {}) => {
     const params = new URLSearchParams();
     if (opts.category) params.set('category', opts.category);
