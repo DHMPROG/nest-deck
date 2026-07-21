@@ -7,6 +7,7 @@
    */
   import { onDestroy, onMount } from 'svelte';
   import ActionCatalog from '$lib/components/editor/ActionCatalog.svelte';
+  import ActionEditorModal from '$lib/components/editor/ActionEditorModal.svelte';
   import EditableGrid from '$lib/components/editor/EditableGrid.svelte';
   import PageList from '$lib/components/editor/PageList.svelte';
   import ProfileSwitcher from '$lib/components/editor/ProfileSwitcher.svelte';
@@ -76,7 +77,10 @@
       },
       page_updated: () => void loadPages(),
       profile_updated: () => void load(),
-      profile_activated: () => void load()
+      profile_activated: () => void load(),
+      action_updated: async () => {
+        actions = await api.listActions();
+      }
     });
   });
 
@@ -352,6 +356,46 @@
     }
   }
 
+  // -- custom actions --------------------------------------------------------
+  let actionModalOpen = $state(false);
+  let editingAction = $state<Action | null>(null);
+
+  function openActionEditor(target: Action | null) {
+    editingAction = target;
+    actionModalOpen = true;
+  }
+
+  async function saveAction(payload: Parameters<typeof api.createAction>[0]) {
+    const target = editingAction;
+    try {
+      if (target) await api.updateAction(target.id, payload);
+      else await api.createAction(payload);
+      actions = await api.listActions();
+      actionModalOpen = false;
+      editingAction = null;
+      // A label or icon change is reflected on the tiles using it.
+      await loadTiles();
+      flash(target ? 'Action mise à jour.' : 'Action créée.');
+    } catch (cause) {
+      fail(cause);
+    }
+  }
+
+  async function deleteAction(target: Action) {
+    try {
+      await api.deleteAction(target.id);
+      actions = await api.listActions();
+      actionModalOpen = false;
+      editingAction = null;
+      // Deleting an action clears the tiles that used it.
+      await loadTiles();
+      undoStack = [];
+      flash('Action supprimée.');
+    } catch (cause) {
+      fail(cause);
+    }
+  }
+
   // -- import / export -------------------------------------------------------
   async function exportProfile() {
     if (!profile) return;
@@ -618,10 +662,27 @@
           </div>
         </div>
       {/if}
-      <ActionCatalog {categories} {actions} />
+      <ActionCatalog
+        {categories}
+        {actions}
+        oncreate={() => openActionEditor(null)}
+        onedit={openActionEditor}
+      />
     </aside>
   </div>
 </div>
+
+<ActionEditorModal
+  open={actionModalOpen}
+  action={editingAction}
+  {categories}
+  onsave={saveAction}
+  ondelete={deleteAction}
+  onclose={() => {
+    actionModalOpen = false;
+    editingAction = null;
+  }}
+/>
 
 <TileEditorModal
   slot={editingSlot}

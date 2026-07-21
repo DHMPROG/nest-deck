@@ -8,9 +8,10 @@
     actions: Action[];
     /** Forced open while a search is active. */
     forceOpen?: boolean;
+    onedit: (action: Action) => void;
   }
 
-  let { category, actions, forceOpen = false }: Props = $props();
+  let { category, actions, forceOpen = false, onedit }: Props = $props();
 
   let collapsed = $state(false);
   const open = $derived(forceOpen || !collapsed);
@@ -37,11 +38,11 @@
   {#if open}
     <ul class="flex flex-col gap-1" transition:slide={{ duration: 160 }}>
       {#each actions as action (action.id)}
-        <li>
+        <li class="group relative">
           <!-- Native HTML5 drag: the catalog is a palette, items are copied
                onto the grid rather than moved out of the list. -->
           <div
-            class="flex h-11 cursor-grab items-center gap-3 rounded-2xl px-3 text-body active:cursor-grabbing"
+            class="flex h-11 cursor-grab items-center gap-3 rounded-2xl pr-9 pl-3 text-body active:cursor-grabbing"
             style="background: {pal.bg}; color: {pal.text}"
             draggable="true"
             role="option"
@@ -59,6 +60,17 @@
             ></i>
             <span class="truncate">{action.label}</span>
           </div>
+
+          <button
+            type="button"
+            class="absolute top-1/2 right-1 grid size-8 -translate-y-1/2 place-items-center rounded-lg opacity-0 group-hover:opacity-100 focus:opacity-100"
+            style="color: {pal.accentDeep}"
+            onclick={() => onedit(action)}
+            aria-label="Configurer {action.label}"
+            title="Configurer"
+          >
+            <i class="ph ph-sliders-horizontal" aria-hidden="true"></i>
+          </button>
         </li>
       {/each}
     </ul>

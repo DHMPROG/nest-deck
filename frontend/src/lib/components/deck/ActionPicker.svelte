@@ -4,7 +4,7 @@
    * Not in the original component list, but the Deck needs a way to add a tile
    * without walking over to the desktop Editor.
    */
-  import { fade, scale } from 'svelte/transition';
+
   import { api } from '$lib/services/api';
   import { CATEGORY_TOKENS, categoryPalette } from '$lib/theme';
   import type { Action, Category } from '$lib/types';
@@ -58,14 +58,12 @@
   <!-- svelte-ignore a11y_no_static_element_interactions -->
   <div
     class="backdrop"
-    transition:fade={{ duration: 150 }}
     onpointerup={(event) => {
       if (event.target === event.currentTarget) onclose();
     }}
   >
     <div
       class="sheet"
-      transition:scale={{ duration: 180, start: 0.96 }}
       role="dialog"
       aria-modal="true"
       aria-label="Choisir une action"
@@ -119,6 +117,8 @@
 {/if}
 
 <style>
+  /* Entrance in CSS, not `transition:` — a Svelte transition here never
+     finished its outro, which left the sheet impossible to close. */
   .backdrop {
     position: fixed;
     inset: 0;
@@ -126,9 +126,24 @@
     display: grid;
     place-items: center;
     background: rgb(0 0 0 / 0.35);
+    animation: backdrop-in 150ms ease-out;
+  }
+
+  @keyframes backdrop-in {
+    from {
+      opacity: 0;
+    }
+  }
+
+  @keyframes sheet-in {
+    from {
+      opacity: 0;
+      transform: scale(0.96);
+    }
   }
 
   .sheet {
+    animation: sheet-in 180ms cubic-bezier(0.2, 0.8, 0.2, 1);
     display: flex;
     flex-direction: column;
     width: min(900px, 88vw);

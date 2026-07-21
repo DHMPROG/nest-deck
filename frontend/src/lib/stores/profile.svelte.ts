@@ -81,6 +81,13 @@ class DeckState {
         // A different profile took over: reload everything.
         this.pageIndex = 0;
         void this.load();
+      },
+
+      action_updated: () => {
+        if (this.#localWrites > 0) return;
+        // Tiles inline their action, so a renamed or retyped action changes
+        // what is on screen even though no tile row was touched.
+        void this.refreshTiles();
       }
     });
   }

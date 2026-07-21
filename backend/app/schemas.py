@@ -7,7 +7,7 @@ from typing import Any, Optional
 from pydantic import BaseModel
 from sqlmodel import Session
 
-from .models import Action, Tile
+from .models import Action, ActionType, Tile
 
 # --------------------------------------------------------------------------- #
 # Request bodies
@@ -41,6 +41,24 @@ class PageUpdate(BaseModel):
 
 class PositionUpdate(BaseModel):
     position: int
+
+
+class ActionCreate(BaseModel):
+    category_id: str
+    label: str
+    icon: str = "lightning"
+    type: ActionType = ActionType.demo
+    endpoint: Optional[str] = None
+    params: dict[str, Any] = {}
+
+
+class ActionUpdate(BaseModel):
+    category_id: Optional[str] = None
+    label: Optional[str] = None
+    icon: Optional[str] = None
+    type: Optional[ActionType] = None
+    endpoint: Optional[str] = None
+    params: Optional[dict[str, Any]] = None
 
 
 class TileCreate(BaseModel):

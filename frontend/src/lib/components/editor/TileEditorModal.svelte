@@ -1,5 +1,4 @@
 <script lang="ts">
-  import { fade, scale } from 'svelte/transition';
   import { CATEGORY_TOKENS, categoryPalette, tokens } from '$lib/theme';
   import { tileIcon, tileLabel } from '$lib/types';
   import type { Action, Category, TileSlot } from '$lib/types';
@@ -80,14 +79,12 @@
   <!-- svelte-ignore a11y_click_events_have_key_events -->
   <div
     class="backdrop"
-    transition:fade={{ duration: 140 }}
     onclick={(event) => {
       if (event.target === event.currentTarget) oncancel();
     }}
   >
     <div
       class="sheet"
-      transition:scale={{ duration: 160, start: 0.97 }}
       role="dialog"
       aria-modal="true"
       aria-label="Modifier la tuile"
@@ -171,6 +168,8 @@
 {/if}
 
 <style>
+  /* Entrance in CSS, not `transition:` — a Svelte transition here never
+     finished its outro, which left the dialog impossible to close. */
   .backdrop {
     position: fixed;
     inset: 0;
@@ -178,9 +177,24 @@
     display: grid;
     place-items: center;
     background: rgb(0 0 0 / 0.35);
+    animation: backdrop-in 140ms ease-out;
+  }
+
+  @keyframes backdrop-in {
+    from {
+      opacity: 0;
+    }
+  }
+
+  @keyframes sheet-in {
+    from {
+      opacity: 0;
+      transform: scale(0.97);
+    }
   }
 
   .sheet {
+    animation: sheet-in 160ms cubic-bezier(0.2, 0.8, 0.2, 1);
     display: grid;
     grid-template-columns: 260px 1fr;
     gap: 24px;

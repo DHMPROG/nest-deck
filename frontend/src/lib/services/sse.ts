@@ -17,6 +17,8 @@ export interface EventHandlers {
   page_updated?: (payload: { page_id: string }) => void;
   tile_updated?: (payload: { tile_id: string; page_id: string }) => void;
   action_fired?: (payload: { tile_id: string; status: string }) => void;
+  /** A catalog entry was created, edited or removed. */
+  action_updated?: (payload: { action_id: string }) => void;
   /** Connection came up (also fires after an automatic reconnect). */
   onopen?: () => void;
   /** Connection dropped; EventSource will retry by itself. */
@@ -28,7 +30,8 @@ const EVENT_NAMES = [
   'profile_updated',
   'page_updated',
   'tile_updated',
-  'action_fired'
+  'action_fired',
+  'action_updated'
 ] as const;
 
 /**

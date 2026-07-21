@@ -6,9 +6,11 @@
   interface Props {
     categories: Category[];
     actions: Action[];
+    oncreate: () => void;
+    onedit: (action: Action) => void;
   }
 
-  let { categories, actions }: Props = $props();
+  let { categories, actions, oncreate, onedit }: Props = $props();
 
   let query = $state('');
 
@@ -58,8 +60,18 @@
           category={group.category}
           actions={group.items}
           forceOpen={query.trim().length > 0}
+          {onedit}
         />
       {/each}
     {/if}
   </div>
+
+  <button
+    type="button"
+    class="flex h-11 shrink-0 items-center justify-center gap-2 rounded-xl border border-dashed border-black/15 text-label text-surface-muted hover:bg-black/5"
+    onclick={oncreate}
+  >
+    <i class="ph ph-plus" aria-hidden="true"></i>
+    Nouvelle action
+  </button>
 </div>

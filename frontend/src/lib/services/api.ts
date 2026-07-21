@@ -7,6 +7,7 @@
 
 import type {
   Action,
+  ActionType,
   Category,
   FireResult,
   Page,
@@ -123,6 +124,28 @@ export const api = {
     const qs = params.toString();
     return request<Action[]>(`/actions${qs ? `?${qs}` : ''}`);
   },
+
+  /** Custom actions: user-defined macros, launchers, URLs. */
+  createAction: (body: {
+    category_id: string;
+    label: string;
+    icon?: string;
+    type: ActionType;
+    endpoint?: string | null;
+    params?: Record<string, unknown>;
+  }) => request<Action>('/actions', { method: 'POST', ...json(body) }),
+  updateAction: (
+    id: string,
+    body: {
+      category_id?: string;
+      label?: string;
+      icon?: string;
+      type?: ActionType;
+      endpoint?: string | null;
+      params?: Record<string, unknown>;
+    }
+  ) => request<Action>(`/actions/${id}`, { method: 'PATCH', ...json(body) }),
+  deleteAction: (id: string) => request<void>(`/actions/${id}`, { method: 'DELETE' }),
 
   // -- fire -----------------------------------------------------------------
   fire: (tileId: string) =>
