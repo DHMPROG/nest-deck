@@ -1,4 +1,5 @@
 <script lang="ts">
+  import IconPicker from './IconPicker.svelte';
   import { CATEGORY_TOKENS, categoryPalette, tokens } from '$lib/theme';
   import { tileIcon, tileLabel } from '$lib/types';
   import type { Action, Category, TileSlot } from '$lib/types';
@@ -141,11 +142,22 @@
           <input bind:value={label} placeholder={selected?.label ?? 'Par défaut'} />
         </label>
 
-        <label class="field">
-          <span>Icône Phosphor</span>
-          <input bind:value={icon} placeholder={selected?.icon ?? 'ex. broadcast'} />
-          <small>Nom d'icône Phosphor, sans le préfixe <code>ph-</code>.</small>
-        </label>
+        <div class="field">
+          <span>Icône personnalisée</span>
+          <IconPicker
+            value={icon || selected?.icon || ''}
+            hint={label || selected?.label || ''}
+            onpick={(name) => (icon = name)}
+          />
+          <small>
+            Laissez tel quel pour garder l'icône de l'action
+            {#if icon}
+              · <button type="button" class="reset" onclick={() => (icon = '')}>
+                réinitialiser
+              </button>
+            {/if}
+          </small>
+        </div>
 
         <div class="field">
           <span>Couleur (aperçu seulement)</span>
@@ -284,6 +296,11 @@
   .field small {
     font-weight: 400;
     color: #8e8e93;
+  }
+
+  .reset {
+    color: #007aff;
+    text-decoration: underline;
   }
 
   .swatches {

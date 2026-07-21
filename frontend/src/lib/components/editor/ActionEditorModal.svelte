@@ -6,6 +6,7 @@
    * Not in the spec's component list: the catalog was frozen at seed time, and
    * defining your own macros and launchers is the whole point of the deck.
    */
+  import IconPicker from './IconPicker.svelte';
   import { api } from '$lib/services/api';
   import { CATEGORY_TOKENS, categoryPalette, tokens } from '$lib/theme';
   import type {
@@ -298,10 +299,11 @@
             </select>
           </label>
 
-          <label class="field">
-            <span>Icône Phosphor</span>
-            <input bind:value={icon} placeholder="ex. keyboard" />
-          </label>
+        </div>
+
+        <div class="field">
+          <span>Icône</span>
+          <IconPicker value={icon} hint={label} onpick={(name) => (icon = name)} />
         </div>
 
         {#if categoryId === NEW_CATEGORY}
