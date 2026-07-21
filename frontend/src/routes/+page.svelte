@@ -1,28 +1,23 @@
 <script lang="ts">
   /**
-   * Deck kiosk view — phase 2 scaffold.
+   * Deck kiosk view — 1280x800, no scroll, touch only.
    *
-   * Renders the real profile / pages / tiles from the backend so the API client
-   * is exercised end to end. Tap-to-fire, long-press wiggle, drag reorder and
-   * swipe between pages land in phase 3.
+   * Header (80px) · grid (flex) · status bar (60px).
    */
   import { onMount, onDestroy } from 'svelte';
-  import { api, ApiError } from '$lib/services/api';
-  import { categoryPalette, GRID } from '$lib/theme';
-  import { tileIcon, tileLabel } from '$lib/types';
-  import type { Page, Profile, TileSlot } from '$lib/types';
+  import { fade } from 'svelte/transition';
+  import HeartbeatKeepAlive from '$lib/components/deck/HeartbeatKeepAlive.svelte';
+  import PageTabs from '$lib/components/deck/PageTabs.svelte';
+  import StatusBar from '$lib/components/deck/StatusBar.svelte';
+  import TileGrid from '$lib/components/deck/TileGrid.svelte';
+  import { deck } from '$lib/stores/profile.svelte';
+  import { editMode } from '$lib/stores/editMode.svelte';
+  import { categoryPalette, tokens } from '$lib/theme';
 
-  let profile = $state<Profile | null>(null);
-  let pages = $state<Page[]>([]);
-  let activePageId = $state<string | null>(null);
-  let slots = $state<TileSlot[]>([]);
-  let online = $state(false);
-  let error = $state<string | null>(null);
   let clock = $state(formatTime(new Date()));
+  let showProfiles = $state(false);
 
-  const activePage = $derived(pages.find((p) => p.id === activePageId) ?? null);
-  const palette = $derived(categoryPalette(activePage?.color));
-  const filled = $derived(slots.filter((s) => s.tile).length);
+  const palette = $derived(categoryPalette(deck.activePage?.color));
 
   function formatTime(date: Date): string {
     return date.toLocaleTimeString('fr-FR', {
@@ -34,142 +29,141 @@
 
   let timer: ReturnType<typeof setInterval>;
 
-  onMount(async () => {
+  onMount(() => {
     timer = setInterval(() => (clock = formatTime(new Date())), 1000);
-    await load();
+    void deck.load();
   });
 
   onDestroy(() => clearInterval(timer));
 
-  async function load() {
-    try {
-      const profiles = await api.listProfiles();
-      profile = profiles.find((p) => p.active) ?? profiles[0] ?? null;
-      if (!profile) {
-        error = 'no profile on the backend';
-        online = true;
-        return;
-      }
-      pages = await api.listPages(profile.id);
-      activePageId = pages[0]?.id ?? null;
-      if (activePageId) slots = await api.listTiles(activePageId);
-      online = true;
-      error = null;
-    } catch (cause) {
-      online = false;
-      error = cause instanceof ApiError ? cause.message : String(cause);
-    }
+  /**
+   * Tapping genuinely empty space leaves wiggle mode (iOS behaviour).
+   *
+   * `pointerup` bubbles, so we must ignore releases that land on a tile or any
+   * control — otherwise the very release that ends the 500ms long press would
+   * turn edit mode straight back off.
+   */
+  function onBackgroundPointerUp(event: PointerEvent) {
+    if (!editMode.active) return;
+    const target = event.target as HTMLElement | null;
+    if (target?.closest('button, a, input')) return;
+    editMode.exit();
   }
 
-  async function selectPage(id: string) {
-    activePageId = id;
-    try {
-      slots = await api.listTiles(id);
-      error = null;
-    } catch (cause) {
-      error = cause instanceof ApiError ? cause.message : String(cause);
-    }
+  function onKeydown(event: KeyboardEvent) {
+    if (event.key === 'Escape') editMode.exit();
+    if (event.key === 'ArrowRight') void deck.nextPage();
+    if (event.key === 'ArrowLeft') void deck.previousPage();
   }
 </script>
 
 <svelte:head><title>Nest Deck</title></svelte:head>
+<svelte:window onkeydown={onKeydown} />
 
+<HeartbeatKeepAlive />
+
+<!-- Tapping the background leaves wiggle mode; Escape does the same for
+     keyboard users, so this handler is a touch convenience only. -->
+<!-- svelte-ignore a11y_no_static_element_interactions -->
 <div
   class="kiosk flex h-screen w-screen flex-col overflow-hidden"
-  style="--accent: {palette.accent}; --accent-deep: {palette.accentDeep}; --cat-bg: {palette.bg}; --cat-text: {palette.text}"
+  onpointerup={onBackgroundPointerUp}
 >
-  <!-- Header ------------------------------------------------------------- -->
+  <!-- Header --------------------------------------------------------------- -->
   <header class="flex h-20 shrink-0 items-center justify-between px-page">
-    <div class="flex min-w-0 items-center gap-3">
-      <span
-        class="grid size-11 place-items-center rounded-pill"
-        style="background: var(--cat-bg); color: var(--accent-deep)"
+    <div class="relative flex min-w-0 items-center gap-3">
+      <button
+        type="button"
+        class="flex h-11 min-w-11 items-center gap-3 rounded-pill pr-4"
+        onpointerup={(e) => {
+          e.stopPropagation();
+          showProfiles = !showProfiles;
+        }}
+        aria-haspopup="menu"
+        aria-expanded={showProfiles}
       >
-        <i class="ph ph-{profile?.icon ?? 'house'} text-2xl" aria-hidden="true"></i>
-      </span>
-      <span class="truncate text-page-heading">{profile?.name ?? '—'}</span>
+        <span
+          class="grid size-11 shrink-0 place-items-center rounded-pill"
+          style="background: {palette.bg}; color: {palette.accentDeep}"
+        >
+          <i class="ph ph-{deck.profile?.icon ?? 'house'} text-2xl" aria-hidden="true"></i>
+        </span>
+        <span class="truncate text-page-heading">{deck.profile?.name ?? '—'}</span>
+      </button>
+
+      {#if showProfiles}
+        <ul
+          class="absolute top-14 left-0 z-20 flex min-w-56 flex-col gap-1 rounded-container bg-white p-2 shadow-hover"
+          transition:fade={{ duration: 120 }}
+          role="menu"
+        >
+          {#each deck.profiles as candidate (candidate.id)}
+            <li>
+              <button
+                type="button"
+                class="flex h-11 w-full items-center gap-3 rounded-2xl px-3 text-left text-body"
+                style={candidate.active ? `background: ${palette.bg}; color: ${palette.text}` : ''}
+                onpointerup={(e) => {
+                  e.stopPropagation();
+                  showProfiles = false;
+                  if (!candidate.active) void deck.activateProfile(candidate.id);
+                }}
+                role="menuitem"
+              >
+                <i class="ph ph-{candidate.icon}" aria-hidden="true"></i>
+                <span class="truncate">{candidate.name}</span>
+                {#if candidate.active}
+                  <i class="ph ph-check ml-auto" aria-hidden="true"></i>
+                {/if}
+              </button>
+            </li>
+          {/each}
+        </ul>
+      {/if}
     </div>
 
-    <nav class="flex items-center gap-2" aria-label="Pages">
-      {#each pages as page (page.id)}
-        {@const pal = categoryPalette(page.color)}
-        {@const isActive = page.id === activePageId}
+    <PageTabs />
+
+    <div class="flex items-center gap-3">
+      {#if editMode.active}
+        <!-- Save and leave wiggle mode. -->
         <button
           type="button"
-          onclick={() => selectPage(page.id)}
-          aria-current={isActive ? 'page' : undefined}
-          class="flex h-11 min-w-11 items-center gap-2 rounded-pill border-2 px-4 text-label transition-[background-color,border-color,color] duration-200"
-          style="
-            border-color: {isActive ? pal.accent : 'transparent'};
-            background: {isActive ? pal.bg : 'transparent'};
-            color: {isActive ? pal.text : 'var(--muted, #8E8E93)'}"
+          class="flex h-11 items-center gap-2 rounded-pill px-4 text-label"
+          style="background: {palette.accent}; color: white"
+          onpointerup={(e) => {
+            e.stopPropagation();
+            editMode.exit();
+          }}
         >
-          <i class="ph ph-{page.icon} text-lg" aria-hidden="true"></i>
-          <span>{page.name}</span>
+          <i class="ph ph-x" aria-hidden="true"></i>
+          <span>Terminé</span>
         </button>
-      {/each}
-    </nav>
-
-    <div class="flex items-center gap-3 text-surface-muted">
-      <span
-        class="size-2.5 rounded-pill"
-        style="background: {online ? '#34C759' : '#FF3B30'}"
-        title={online ? 'backend online' : 'backend offline'}
-      ></span>
-      <span class="tabular-nums text-page-heading text-surface-text-day">{clock}</span>
+      {:else}
+        <span
+          class="size-2.5 rounded-pill"
+          style="background: {deck.online ? tokens.category.meeting.accent : tokens.category.stream.accent}"
+          title={deck.online ? 'backend en ligne' : 'backend hors ligne'}
+        ></span>
+        <span class="tabular-nums text-page-heading">{clock}</span>
+      {/if}
     </div>
   </header>
 
-  <!-- Grid --------------------------------------------------------------- -->
-  <main
-    class="grid min-h-0 flex-1 gap-grid px-page"
-    style="grid-template-columns: repeat({GRID.cols}, 1fr); grid-template-rows: repeat({GRID.rows}, 1fr)"
-  >
-    {#each slots as slot, i (`${slot.row}-${slot.col}`)}
-      {#if slot.tile}
-        <div
-          class="tile-in flex flex-col items-center justify-center gap-2 rounded-tile px-3 text-center shadow-rest"
-          style="--i: {i}; background: var(--cat-bg); color: var(--cat-text)"
-        >
-          <i
-            class="ph-duotone ph-{tileIcon(slot.tile)} text-[64px] leading-none"
-            style="color: var(--accent-deep)"
-            aria-hidden="true"
-          ></i>
-          <span class="text-tile-title">{tileLabel(slot.tile)}</span>
-          <span class="text-tile-subtitle text-surface-muted"
-            >{slot.tile.action?.type ?? ''}</span
-          >
-        </div>
-      {:else}
-        <div
-          class="tile-in grid place-items-center rounded-tile border-2 border-dashed"
-          style="--i: {i}; border-color: color-mix(in srgb, var(--accent) 25%, transparent)"
-        >
-          <i
-            class="ph ph-plus text-4xl text-surface-muted opacity-40"
-            aria-hidden="true"
-          ></i>
-        </div>
-      {/if}
-    {/each}
-  </main>
+  <!-- Grid ----------------------------------------------------------------- -->
+  <TileGrid />
 
-  <!-- Status bar --------------------------------------------------------- -->
-  <footer class="flex h-[60px] shrink-0 items-center justify-center">
-    <p
-      class="flex h-10 items-center gap-2 rounded-pill px-5 text-label shadow-rest"
-      style="background: {error ? '#FFE5E4' : 'var(--cat-bg)'}; color: {error
-        ? '#C4271E'
-        : 'var(--cat-text)'}"
-    >
-      {#if error}
-        <i class="ph ph-warning-circle" aria-hidden="true"></i>
-        <span>{error}</span>
-      {:else}
-        <i class="ph ph-check-circle" aria-hidden="true"></i>
-        <span>{activePage?.name ?? '—'} · {filled}/{GRID.slots} tuiles</span>
-      {/if}
-    </p>
-  </footer>
+  <!-- Status bar ------------------------------------------------------------ -->
+  <StatusBar />
 </div>
+
+<!-- Editor shortcut for the desktop admin. -->
+<a
+  href="/editor"
+  target="_blank"
+  rel="noopener"
+  class="fixed right-3 bottom-3 grid size-11 place-items-center rounded-pill text-surface-muted opacity-40"
+  aria-label="Ouvrir l'éditeur"
+>
+  <i class="ph ph-gear text-xl" aria-hidden="true"></i>
+</a>
