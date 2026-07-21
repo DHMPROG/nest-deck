@@ -16,6 +16,7 @@ Handler = Callable[[Action], Awaitable[dict]]
 
 
 async def _open(action: Action) -> dict:
+    """Client-side concern: the Deck opens the URL, the backend just acks."""
     return {"status": "ok", "message": "open in deck client"}
 
 

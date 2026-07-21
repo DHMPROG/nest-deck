@@ -32,9 +32,15 @@ python -m venv .venv
 
 Le dossier `.venv/` est déjà dans le `.gitignore`.
 
-> Les dépendances `obsws-python`, `spotipy` et `pynput` sont déclarées dans
-> `pyproject.toml` mais inutiles avant la phase 6 : les handlers concernés
-> n'importent rien au chargement.
+Pour les intégrations réelles (OBS, Spotify, macros clavier) :
+
+```powershell
+.\.venv\Scripts\pip install obsws-python spotipy pynput
+```
+
+> Ces trois-là restent optionnelles : les handlers les importent paresseusement,
+> donc l'application démarre sans elles. Seul le déclenchement d'une action du
+> type concerné renverra alors une erreur explicite.
 
 ### Démarrage
 
@@ -202,6 +208,8 @@ saisir **1280 × 800**.
 | `[Errno 10048] error while attempting to bind` | Port 8000 déjà utilisé | Un uvicorn tourne déjà : `netstat -ano \| findstr :8000` puis `taskkill /PID <pid> /F` |
 | L'IP `192.168.2.11` ne répond plus | Bail DHCP renouvelé | Récupérer la nouvelle IP : `Get-NetIPAddress -AddressFamily IPv4` |
 | Bordures des cases vides invisibles sur le Hub | `color-mix()` non supporté (Chrome < 111) | Signaler : à remplacer par des valeurs `rgb()` précalculées depuis `theme.ts` |
+| Une action OBS met ~4 s à répondre en erreur | OBS n'est pas lancé | Comportement normal : le handler attend l'expiration du délai avant d'abandonner |
+| `pynput unavailable (headless host?)` | Backend dans Docker, sans périphérique d'entrée | Les macros clavier doivent tourner sur la machine à piloter, pas dans le conteneur |
 
 ---
 
