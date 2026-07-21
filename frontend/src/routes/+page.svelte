@@ -29,12 +29,19 @@
 
   let timer: ReturnType<typeof setInterval>;
 
+  let disconnectLive: (() => void) | null = null;
+
   onMount(() => {
     timer = setInterval(() => (clock = formatTime(new Date())), 1000);
     void deck.load();
+    // Live sync: an edit in the Editor lands here without a reload.
+    disconnectLive = deck.connectLive();
   });
 
-  onDestroy(() => clearInterval(timer));
+  onDestroy(() => {
+    clearInterval(timer);
+    disconnectLive?.();
+  });
 
   /**
    * Tapping genuinely empty space leaves wiggle mode (iOS behaviour).

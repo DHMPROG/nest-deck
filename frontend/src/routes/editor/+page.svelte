@@ -5,13 +5,14 @@
    * Every edit is optimistic and persisted immediately; there is no save
    * button. Each mutation also pushes an inverse onto a 5-deep undo stack.
    */
-  import { onMount } from 'svelte';
+  import { onDestroy, onMount } from 'svelte';
   import ActionCatalog from '$lib/components/editor/ActionCatalog.svelte';
   import EditableGrid from '$lib/components/editor/EditableGrid.svelte';
   import PageList from '$lib/components/editor/PageList.svelte';
   import ProfileSwitcher from '$lib/components/editor/ProfileSwitcher.svelte';
   import TileEditorModal from '$lib/components/editor/TileEditorModal.svelte';
   import { api, ApiError } from '$lib/services/api';
+  import { subscribeToEvents } from '$lib/services/sse';
   import { CATEGORY_TOKENS, categoryPalette, tokens } from '$lib/theme';
   import type { Action, Category, Page, Profile, TileSlot } from '$lib/types';
 
@@ -61,7 +62,25 @@
   }
 
   // -- loading ---------------------------------------------------------------
-  onMount(load);
+  let disconnectLive: (() => void) | null = null;
+
+  onMount(() => {
+    void load();
+    // The Deck can edit tiles too (wiggle mode on the Nest Hub), so the Editor
+    // subscribes as well rather than only broadcasting. Echoes of our own
+    // writes are harmless here: they just trigger a redundant refetch of state
+    // the server already confirmed.
+    disconnectLive = subscribeToEvents({
+      tile_updated: ({ page_id }) => {
+        if (page_id === activePageId) void loadTiles();
+      },
+      page_updated: () => void loadPages(),
+      profile_updated: () => void load(),
+      profile_activated: () => void load()
+    });
+  });
+
+  onDestroy(() => disconnectLive?.());
 
   async function load() {
     try {

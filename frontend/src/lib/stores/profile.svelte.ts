@@ -4,6 +4,7 @@
  */
 
 import { api, ApiError } from '$lib/services/api';
+import { subscribeToEvents } from '$lib/services/sse';
 import type { Page, Profile, TileSlot } from '$lib/types';
 import { GRID } from '$lib/theme';
 
@@ -23,9 +24,89 @@ class DeckState {
   activePage = $derived<Page | null>(this.pages[this.pageIndex] ?? null);
   filledCount = $derived(this.slots.filter((s) => s.tile).length);
 
+  /**
+   * Depth of in-flight local mutations. The backend broadcasts every write,
+   * including our own, so while this is non-zero we ignore incoming events —
+   * otherwise a drag would fight the echo of its own PATCH.
+   */
+  #localWrites = 0;
+
   #fail(cause: unknown) {
     this.error = cause instanceof ApiError ? cause.message : String(cause);
     if (cause instanceof ApiError && cause.status === 0) this.online = false;
+  }
+
+  /** Run a local write with live updates suppressed until its echo passes. */
+  async #write<T>(run: () => Promise<T>): Promise<T | undefined> {
+    this.#localWrites++;
+    try {
+      return await run();
+    } catch (cause) {
+      this.#fail(cause);
+      return undefined;
+    } finally {
+      setTimeout(() => this.#localWrites--, 250);
+    }
+  }
+
+  /**
+   * Subscribe to backend mutations so an edit made in the Editor shows up here
+   * without a reload. Returns an unsubscribe function.
+   */
+  connectLive(): () => void {
+    return subscribeToEvents({
+      onopen: () => {
+        this.online = true;
+        this.error = null;
+      },
+      onerror: () => (this.online = false),
+
+      tile_updated: ({ page_id }) => {
+        if (this.#localWrites > 0) return;
+        // Only the current page is on screen; anything else can wait.
+        if (page_id === this.activePage?.id) void this.refreshTiles();
+      },
+
+      page_updated: () => {
+        if (this.#localWrites > 0) return;
+        void this.reloadPages();
+      },
+
+      profile_updated: () => {
+        if (this.#localWrites > 0) return;
+        void this.reloadProfiles();
+      },
+
+      profile_activated: () => {
+        // A different profile took over: reload everything.
+        this.pageIndex = 0;
+        void this.load();
+      }
+    });
+  }
+
+  /** Refresh page metadata (names, colours, order) without losing the slot. */
+  async reloadPages() {
+    if (!this.profile) return;
+    try {
+      const current = this.activePage?.id;
+      this.pages = await api.listPages(this.profile.id);
+      const index = this.pages.findIndex((p) => p.id === current);
+      this.pageIndex = index >= 0 ? index : Math.min(this.pageIndex, this.pages.length - 1);
+      await this.refreshTiles();
+    } catch (cause) {
+      this.#fail(cause);
+    }
+  }
+
+  async reloadProfiles() {
+    try {
+      this.profiles = await api.listProfiles();
+      this.profile =
+        this.profiles.find((p) => p.id === this.profile?.id) ?? this.profile;
+    } catch (cause) {
+      this.#fail(cause);
+    }
   }
 
   async load() {
@@ -100,46 +181,32 @@ class DeckState {
     const mover = from.tile ?? to.tile!;
     const target = from.tile ? { row: to.row, col: to.col } : { row: from.row, col: from.col };
 
-    try {
-      await api.updateTile(mover.id, target);
-    } catch (cause) {
-      this.#fail(cause);
-    }
+    await this.#write(() => api.updateTile(mover.id, target));
     // The server is authoritative — reconcile either way.
     await this.refreshTiles();
   }
 
   /** Empty a slot (edit mode). */
   async clearTile(tileId: string) {
-    try {
-      await api.clearTile(tileId);
-    } catch (cause) {
-      this.#fail(cause);
-    }
+    await this.#write(() => api.clearTile(tileId));
     await this.refreshTiles();
   }
 
-  /** Drop an action onto an empty slot (edit mode). */
+  /** Drop an action onto an empty slot. */
   async placeAction(row: number, col: number, actionId: string) {
     const page = this.activePage;
     if (!page) return;
-    try {
-      await api.placeTile({ page_id: page.id, row, col, action_id: actionId });
-    } catch (cause) {
-      this.#fail(cause);
-    }
+    await this.#write(() =>
+      api.placeTile({ page_id: page.id, row, col, action_id: actionId })
+    );
     await this.refreshTiles();
   }
 
   async renamePage(pageId: string, name: string) {
     const trimmed = name.trim();
     if (!trimmed) return;
-    try {
-      const updated = await api.updatePage(pageId, { name: trimmed });
-      this.pages = this.pages.map((p) => (p.id === pageId ? updated : p));
-    } catch (cause) {
-      this.#fail(cause);
-    }
+    const updated = await this.#write(() => api.updatePage(pageId, { name: trimmed }));
+    if (updated) this.pages = this.pages.map((p) => (p.id === pageId ? updated : p));
   }
 
   async activateProfile(profileId: string) {
