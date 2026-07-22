@@ -9,6 +9,7 @@
   import ActionCatalog from '$lib/components/editor/ActionCatalog.svelte';
   import ActionEditorModal from '$lib/components/editor/ActionEditorModal.svelte';
   import CastPanel from '$lib/components/editor/CastPanel.svelte';
+  import OnboardingWizard from '$lib/components/editor/OnboardingWizard.svelte';
   import { theme } from '$lib/stores/theme.svelte';
   import EditableGrid from '$lib/components/editor/EditableGrid.svelte';
   import PageList from '$lib/components/editor/PageList.svelte';
@@ -67,8 +68,19 @@
   // -- loading ---------------------------------------------------------------
   let disconnectLive: (() => void) | null = null;
 
+  // -- onboarding ------------------------------------------------------------
+  let showOnboarding = $state(false);
+
   onMount(() => {
     void load();
+    void (async () => {
+      try {
+        const s = await api.getSettings();
+        showOnboarding = !s.onboarded;
+      } catch {
+        /* backend not ready; skip onboarding rather than block the editor */
+      }
+    })();
     // The Deck can edit tiles too (wiggle mode on the Nest Hub), so the Editor
     // subscribes as well rather than only broadcasting. Echoes of our own
     // writes are harmless here: they just trigger a redundant refetch of state
@@ -640,6 +652,16 @@
       >
         <i class="ph ph-{theme.mode === 'dark' ? 'sun' : 'moon'} text-lg" aria-hidden="true"></i>
       </button>
+
+      <button
+        type="button"
+        class="grid size-10 place-items-center rounded-pill hover:bg-app-hover"
+        onclick={() => (showOnboarding = true)}
+        aria-label="Revoir le guide"
+        title="Revoir le guide"
+      >
+        <i class="ph ph-question text-lg" aria-hidden="true"></i>
+      </button>
     </div>
   </header>
 
@@ -767,6 +789,8 @@
     </aside>
   </div>
 </div>
+
+<OnboardingWizard open={showOnboarding} onclose={() => (showOnboarding = false)} />
 
 <ActionEditorModal
   open={actionModalOpen}

@@ -187,5 +187,10 @@ export const api = {
   castRecast: () => request<CastStatus>('/cast/recast', { method: 'POST' }),
   castDisconnect: () =>
     request<{ connected: boolean }>('/cast/disconnect', { method: 'POST' }),
-  castForget: () => request<{ remembered: null }>('/cast/remembered', { method: 'DELETE' })
+  castForget: () => request<{ remembered: null }>('/cast/remembered', { method: 'DELETE' }),
+
+  // -- app settings (onboarding, …) -----------------------------------------
+  getSettings: () => request<{ onboarded: boolean }>('/settings'),
+  setSettings: (body: { onboarded?: boolean }) =>
+    request<{ onboarded: boolean }>('/settings', { method: 'PATCH', ...json(body) })
 };

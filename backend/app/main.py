@@ -18,6 +18,7 @@ from .routes import (
     fire,
     pages,
     profiles,
+    settings,
     system,
     tiles,
 )
@@ -50,7 +51,18 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-for module in (profiles, pages, tiles, actions, categories, fire, events, system, cast):
+for module in (
+    profiles,
+    pages,
+    tiles,
+    actions,
+    categories,
+    fire,
+    events,
+    system,
+    cast,
+    settings,
+):
     app.include_router(module.router, prefix="/api")
 
 
