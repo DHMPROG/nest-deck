@@ -9,6 +9,8 @@ import type {
   Action,
   ActionType,
   BrowseResult,
+  CastDevice,
+  CastStatus,
   Category,
   FireResult,
   InstalledApp,
@@ -172,5 +174,18 @@ export const api = {
 
   // -- fire -----------------------------------------------------------------
   fire: (tileId: string) =>
-    request<FireResult>(`/fire/${tileId}`, { method: 'POST' })
+    request<FireResult>(`/fire/${tileId}`, { method: 'POST' }),
+
+  // -- cast (desktop app) ---------------------------------------------------
+  castDevices: (timeout = 6) =>
+    request<{ devices: CastDevice[]; remembered: { uuid: string; name: string } | null }>(
+      `/cast/devices?timeout=${timeout}`
+    ),
+  castStatus: () => request<CastStatus>('/cast/status'),
+  castConnect: (target: { uuid?: string; name?: string }) =>
+    request<CastStatus>('/cast/connect', { method: 'POST', ...json(target) }),
+  castRecast: () => request<CastStatus>('/cast/recast', { method: 'POST' }),
+  castDisconnect: () =>
+    request<{ connected: boolean }>('/cast/disconnect', { method: 'POST' }),
+  castForget: () => request<{ remembered: null }>('/cast/remembered', { method: 'DELETE' })
 };

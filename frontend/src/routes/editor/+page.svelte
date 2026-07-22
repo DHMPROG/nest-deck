@@ -8,6 +8,7 @@
   import { onDestroy, onMount } from 'svelte';
   import ActionCatalog from '$lib/components/editor/ActionCatalog.svelte';
   import ActionEditorModal from '$lib/components/editor/ActionEditorModal.svelte';
+  import CastPanel from '$lib/components/editor/CastPanel.svelte';
   import EditableGrid from '$lib/components/editor/EditableGrid.svelte';
   import PageList from '$lib/components/editor/PageList.svelte';
   import ProfileSwitcher from '$lib/components/editor/ProfileSwitcher.svelte';
@@ -561,6 +562,7 @@
     <span class="text-label text-surface-muted">Éditeur</span>
 
     <div class="ml-auto flex items-center gap-2">
+      <CastPanel />
       {#if notice}
         <span class="rounded-pill bg-cat-meeting px-3 py-1 text-label text-cat-meeting-text">
           {notice}

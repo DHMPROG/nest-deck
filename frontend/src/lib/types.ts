@@ -91,6 +91,23 @@ export interface BrowseResult {
   entries: BrowseEntry[];
 }
 
+/** A Chromecast / Nest Hub found on the network (desktop app). */
+export interface CastDevice {
+  uuid: string;
+  name: string;
+  model: string;
+  host: string;
+  port: number;
+}
+
+export interface CastStatus {
+  connected: boolean;
+  device: CastDevice | null;
+  casting?: boolean;
+  current_app?: string | null;
+  deck_url?: string;
+}
+
 export interface FireResult {
   status: 'ok' | 'error';
   message: string;
