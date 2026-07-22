@@ -92,7 +92,7 @@ body {
 @keyframes tile-in {
   from {
     opacity: 0;
-    transform: translateY(8px);
+    transform: translateY(10px) scale(0.96);
   }
   to {
     opacity: 1;
@@ -101,9 +101,10 @@ body {
 }
 
 .tile-in {
-  animation: tile-in 260ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
-  /* Staggered 30ms per index via --i, set inline by the grid. */
-  animation-delay: calc(var(--i, 0) * 30ms);
+  /* Slight overshoot ease so tiles settle with a bit of life rather than
+     sliding in flat. Staggered per index (--i) for a wave. */
+  animation: tile-in 320ms cubic-bezier(0.22, 1.2, 0.36, 1) both;
+  animation-delay: calc(var(--i, 0) * 28ms);
 }
 
 @media (prefers-reduced-motion: reduce) {

@@ -100,27 +100,43 @@
     onremove?.(slot);
   }
 
+  /** A quick overshoot-and-settle pop, so a success feels physically confirmed. */
+  function pop() {
+    if (reduced) return;
+    scale.set(1.06, { instant: true });
+    scale.target = 1;
+  }
+
   async function fire() {
     const tile = slot.tile;
     if (!tile || phase === 'pending') return;
 
     sound.click();
     phase = 'pending';
+    // Stay pressed in while the action is in flight — the held button *is* the
+    // "sending" indicator, so there's no spinner loop.
+    if (!reduced) scale.target = 0.96;
     const label = tileLabel(slot.tile);
 
     try {
       const result = await api.fire(tile.id);
       phase = result.status === 'ok' ? 'ok' : 'error';
       status.report(label, result.message, result.status === 'ok' ? 'ok' : 'error');
-      if (result.status === 'ok') sound.success();
-      else sound.failure();
+      if (result.status === 'ok') {
+        sound.success();
+        pop();
+      } else {
+        sound.failure();
+        if (!reduced) scale.target = 1;
+      }
     } catch (cause) {
       phase = 'error';
       status.report(label, cause instanceof Error ? cause.message : 'failed', 'error');
       sound.failure();
+      if (!reduced) scale.target = 1;
     }
 
-    setTimeout(() => (phase = 'idle'), 450);
+    setTimeout(() => (phase = 'idle'), 420);
   }
 </script>
 
@@ -138,6 +154,7 @@
       class="tile"
       class:is-ok={phase === 'ok'}
       class:is-error={phase === 'error'}
+      class:is-pending={phase === 'pending'}
       style="transform: scale({scale.current})"
       onpointerdown={press}
       onpointermove={track}
@@ -146,11 +163,7 @@
       onpointerleave={abort}
       aria-label={tileLabel(slot.tile)}
     >
-      <i
-        class="ph-duotone ph-{tileIcon(slot.tile)} icon"
-        class:spin={phase === 'pending'}
-        aria-hidden="true"
-      ></i>
+      <i class="ph-duotone ph-{tileIcon(slot.tile)} icon" aria-hidden="true"></i>
       <span class="text-tile-title">{tileLabel(slot.tile)}</span>
       <span class="text-tile-subtitle subtitle">{slot.tile.action?.type ?? ''}</span>
     </button>
@@ -214,6 +227,17 @@
       0 1px 2px rgb(0 0 0 / 0.06),
       0 4px 12px rgb(0 0 0 / 0.06);
     cursor: pointer;
+    /* Shadow eases with the press; the scale itself is spring-driven in JS. */
+    transition: box-shadow 140ms ease;
+  }
+
+  /* Held while an action is in flight: a real pressed-in button, no spinner. */
+  .tile.is-pending {
+    box-shadow: inset 0 2px 5px rgb(0 0 0 / 0.14);
+  }
+  .tile.is-pending .icon {
+    opacity: 0.5;
+    transition: opacity 120ms ease;
   }
 
   .icon {
@@ -291,29 +315,22 @@
     border-radius: 999px;
   }
 
-  .spin {
-    animation: spin 900ms linear infinite;
-  }
-  @keyframes spin {
-    to {
-      transform: rotate(360deg);
-    }
-  }
-
+  /* Success: a green ring blooms out once. */
   .is-ok {
-    animation: ring-ok 400ms ease-out;
+    animation: ring-ok 420ms ease-out;
   }
   @keyframes ring-ok {
     from {
-      box-shadow: 0 0 0 0 rgb(52 199 89 / 0.9);
+      box-shadow: 0 0 0 0 rgb(52 199 89 / 0.85);
     }
     to {
       box-shadow: 0 0 0 14px rgb(52 199 89 / 0);
     }
   }
 
+  /* Error: a tight, damped shake with a red ring. */
   .is-error {
-    animation: shake 400ms ease-in-out;
+    animation: shake 380ms cubic-bezier(0.36, 0.07, 0.19, 0.97);
     box-shadow: 0 0 0 3px rgb(255 59 48 / 0.55);
   }
   @keyframes shake {
@@ -321,34 +338,42 @@
     100% {
       translate: 0;
     }
-    20% {
-      translate: -6px;
+    15% {
+      translate: -5px;
     }
-    40% {
-      translate: 6px;
+    30% {
+      translate: 5px;
+    }
+    45% {
+      translate: -3px;
     }
     60% {
-      translate: -4px;
+      translate: 3px;
     }
-    80% {
-      translate: 4px;
+    75% {
+      translate: -1px;
     }
   }
 
+  /* Edit mode wiggle. Kept — it's how the Hub signals "editable" — but each
+     tile is phase-shifted by its index so the grid jiggles organically rather
+     than in lockstep, and it eases smoothly. */
   .wiggle {
-    animation: wiggle 200ms ease-in-out infinite alternate;
+    animation: wiggle 260ms ease-in-out infinite alternate;
+    animation-delay: calc(var(--i, 0) * -47ms);
   }
   @keyframes wiggle {
     from {
-      rotate: -1deg;
+      rotate: -0.9deg;
+      translate: 0 -0.5px;
     }
     to {
-      rotate: 1deg;
+      rotate: 0.9deg;
+      translate: 0 0.5px;
     }
   }
 
   @media (prefers-reduced-motion: reduce) {
-    .spin,
     .is-ok,
     .is-error,
     .wiggle {
