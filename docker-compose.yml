@@ -1,0 +1,59 @@
+# Nest Deck — container stack.
+#
+# Two ways to run it (see README / RUNNING.md):
+#
+#   Full Docker      — `docker compose up -d`
+#                      Everything in containers. OBS, Spotify and HTTP actions
+#                      work; keyboard macros, launchers and the app picker do
+#                      NOT, because a Linux container has no keyboard, no
+#                      installed apps and no Start Menu.
+#
+#   Native backend   — run the backend on Windows (so macros/launchers work),
+#                      then `docker compose up -d frontend` with
+#                      BACKEND_URL=http://host.docker.internal:8000 in .env.
+#
+# The cast-keeper is behind the `cast` profile: its host networking only
+# discovers the Chromecast on Linux. On Windows, cast with catt natively.
+
+services:
+  backend:
+    build: ./backend
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./data:/data
+    environment:
+      - DATABASE_URL=sqlite:////data/deck.db
+      - OBS_URL=${OBS_URL:-ws://host.docker.internal:4455}
+      - OBS_PASSWORD=${OBS_PASSWORD:-}
+      - SPOTIPY_CLIENT_ID=${SPOTIPY_CLIENT_ID:-}
+      - SPOTIPY_CLIENT_SECRET=${SPOTIPY_CLIENT_SECRET:-}
+      - SPOTIPY_REDIRECT_URI=${SPOTIPY_REDIRECT_URI:-http://localhost:8000/callback}
+      - SPOTIFY_CACHE=/data/.spotify-cache
+    # Lets the container reach services on the host (OBS, a native backend).
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        VITE_API_BASE: ""
+    ports:
+      - "8080:80"
+    environment:
+      # http://backend:8000 in full-Docker mode; override to
+      # http://host.docker.internal:8000 when the backend is native.
+      - BACKEND_URL=${BACKEND_URL:-http://backend:8000}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    restart: unless-stopped
+
+  cast-keeper:
+    image: ryanbarrett/catt-chromecast:latest
+    network_mode: host
+    command: >
+      sh -c 'catt -d ${NEST_HUB_IP} cast_site http://${SERVER_IP}:8080'
+    restart: unless-stopped
+    profiles: ["cast"]
