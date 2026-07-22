@@ -16,8 +16,21 @@ Handler = Callable[[Action], Awaitable[dict]]
 
 
 async def _open(action: Action) -> dict:
-    """Client-side concern: the Deck opens the URL, the backend just acks."""
-    return {"status": "ok", "message": "open in deck client"}
+    """Open the URL in the default browser on the host PC (not on the Deck)."""
+    import asyncio
+    import webbrowser
+
+    url = (action.endpoint or "").strip()
+    if not url:
+        return {"status": "error", "message": "aucune URL configurée"}
+
+    try:
+        opened = await asyncio.to_thread(webbrowser.open, url)
+        if not opened:
+            return {"status": "error", "message": "aucun navigateur disponible"}
+        return {"status": "ok", "message": f"ouvert · {url}"}
+    except Exception as exc:  # noqa: BLE001 - a handler must never raise
+        return {"status": "error", "message": str(exc) or type(exc).__name__}
 
 
 HANDLERS: dict[str, Handler] = {

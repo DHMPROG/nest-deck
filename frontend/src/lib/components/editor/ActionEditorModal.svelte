@@ -41,7 +41,7 @@
   const TYPES: { value: ActionType; label: string; hint: string }[] = [
     { value: 'pc', label: 'Macro clavier', hint: 'Envoie une combinaison de touches sur le PC.' },
     { value: 'launcher', label: 'Lancer un logiciel', hint: 'Démarre une application ou une commande.' },
-    { value: 'open', label: 'Ouvrir un lien', hint: 'Ouvre une URL sur le Deck.' },
+    { value: 'open', label: 'Ouvrir un lien', hint: 'Ouvre une URL dans le navigateur de l’ordinateur.' },
     { value: 'fetch', label: 'Appel HTTP', hint: 'Appelle une URL (webhook, domotique…).' },
     { value: 'obs', label: 'OBS', hint: 'Envoie une requête à OBS via WebSocket.' },
     { value: 'spotify', label: 'Spotify', hint: 'Contrôle la lecture Spotify.' },
