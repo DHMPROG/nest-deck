@@ -21,13 +21,13 @@
 <section class="flex flex-col gap-2">
   <button
     type="button"
-    class="flex h-10 items-center gap-2 rounded-xl px-1 text-body font-semibold hover:bg-black/5"
+    class="flex h-10 items-center gap-2 rounded-xl px-1 text-body font-semibold hover:bg-app-hover"
     onclick={() => (collapsed = !collapsed)}
     aria-expanded={open}
   >
     <span class="size-3 rounded-pill" style="background: {pal.accent}"></span>
     <span>{category.name}</span>
-    <span class="text-label font-normal text-surface-muted">{actions.length}</span>
+    <span class="text-label font-normal text-app-muted">{actions.length}</span>
     <i
       class="ph ph-caret-down ml-auto transition-transform duration-200"
       class:rotate-180={!open}

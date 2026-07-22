@@ -67,7 +67,7 @@
 </script>
 
 <div class="flex min-h-0 flex-1 flex-col gap-2">
-  <h2 class="text-label uppercase tracking-wide text-surface-muted">Pages</h2>
+  <h2 class="text-label uppercase tracking-wide text-app-muted">Pages</h2>
 
   <ul
     class="flex flex-col gap-1 overflow-y-auto"
@@ -80,7 +80,7 @@
       <li class="group flex items-center gap-1">
         <button
           type="button"
-          class="flex h-11 min-w-0 flex-1 items-center gap-3 rounded-2xl px-3 text-left text-body hover:bg-black/5"
+          class="flex h-11 min-w-0 flex-1 items-center gap-3 rounded-2xl px-3 text-left text-body hover:bg-app-hover"
           style={item.page.id === activeId
             ? `background: ${pal.bg}; color: ${pal.text}`
             : ''}
@@ -91,10 +91,10 @@
         </button>
         <button
           type="button"
-          class="grid size-9 shrink-0 place-items-center rounded-lg opacity-0 hover:bg-black/5 group-hover:opacity-100 focus:opacity-100"
+          class="grid size-9 shrink-0 place-items-center rounded-lg opacity-0 hover:bg-app-hover group-hover:opacity-100 focus:opacity-100"
           class:!opacity-100={confirmingId === item.page.id}
           class:text-cat-stream-accent-deep={confirmingId === item.page.id}
-          class:text-surface-muted={confirmingId !== item.page.id}
+          class:text-app-muted={confirmingId !== item.page.id}
           onclick={() => armDelete(item.page.id)}
           aria-label={confirmingId === item.page.id
             ? `Confirmer la suppression de ${item.page.name}`
@@ -113,7 +113,7 @@
   {#if creating}
     <!-- svelte-ignore a11y_autofocus -->
     <input
-      class="h-10 shrink-0 rounded-xl border border-black/15 px-3 text-body"
+      class="h-10 shrink-0 rounded-xl border border-app-border px-3 text-body"
       placeholder="Nom de la page"
       bind:value={draft}
       onblur={submitCreate}
@@ -130,7 +130,7 @@
   {:else}
     <button
       type="button"
-      class="flex h-10 shrink-0 items-center justify-center gap-2 rounded-xl border border-dashed border-black/15 text-label text-surface-muted hover:bg-black/5"
+      class="flex h-10 shrink-0 items-center justify-center gap-2 rounded-xl border border-dashed border-app-border text-label text-app-muted hover:bg-app-hover"
       onclick={() => (creating = true)}
     >
       <i class="ph ph-plus" aria-hidden="true"></i>

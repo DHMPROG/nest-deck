@@ -141,7 +141,7 @@
     flex-direction: column;
     gap: 8px;
     padding: 8px;
-    border: 1px solid rgb(0 0 0 / 0.1);
+    border: 1px solid var(--border);
     border-radius: 12px;
     background: rgb(0 0 0 / 0.02);
   }
@@ -158,15 +158,15 @@
     gap: 6px;
     padding: 4px 10px;
     border-radius: 999px;
-    background: #fff;
-    border: 1px solid rgb(0 0 0 / 0.1);
+    background: var(--surface);
+    border: 1px solid var(--border);
     font-size: 20px;
     flex-shrink: 0;
   }
 
   .current code {
     font-size: 11px;
-    color: #8e8e93;
+    color: var(--muted);
     max-width: 110px;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -178,11 +178,11 @@
     min-width: 0;
     height: 34px;
     padding: 0 10px;
-    border: 1px solid rgb(0 0 0 / 0.12);
+    border: 1px solid var(--border);
     border-radius: 10px;
     font-size: 14px;
     font-weight: 400;
-    background: #fff;
+    background: var(--surface);
   }
 
   .grid {
@@ -199,11 +199,11 @@
     aspect-ratio: 1;
     border-radius: 8px;
     font-size: 22px;
-    color: #1c1c1e;
+    color: var(--text);
   }
 
   .icon:hover {
-    background: rgb(0 0 0 / 0.07);
+    background: var(--hover);
   }
 
   .icon.on {
@@ -215,12 +215,12 @@
     grid-column: 1 / -1;
     padding: 12px;
     font-size: 13px;
-    color: #8e8e93;
+    color: var(--muted);
   }
 
   small {
     font-size: 11px;
     font-weight: 400;
-    color: #8e8e93;
+    color: var(--muted);
   }
 </style>

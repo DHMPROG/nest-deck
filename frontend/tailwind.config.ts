@@ -28,6 +28,18 @@ export default {
     extend: {
       colors: {
         cat: category,
+        // Theme-adaptive chrome, backed by the CSS variables in app.css. Using
+        // these instead of bg-white / border-black/5 makes a surface flip with
+        // the light/dark toggle automatically.
+        app: {
+          bg: 'var(--bg)',
+          surface: 'var(--surface)',
+          sunken: 'var(--surface-sunken)',
+          text: 'var(--text)',
+          muted: 'var(--muted)',
+          border: 'var(--border)',
+          hover: 'var(--hover)'
+        },
         surface: {
           day: tokens.surface.bgDay,
           night: tokens.surface.bgNight,

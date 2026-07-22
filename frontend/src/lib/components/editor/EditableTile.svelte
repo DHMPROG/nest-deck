@@ -144,7 +144,7 @@
   }
 
   .cell:not(.filled) {
-    border: 2px dashed rgb(0 0 0 / 0.1);
+    border: 2px dashed var(--border);
   }
 
   .cell.drag-over {
@@ -188,7 +188,7 @@
   .placeholder {
     display: grid;
     place-items: center;
-    color: #8e8e93;
+    color: var(--muted);
     opacity: 0.4;
   }
 
@@ -223,7 +223,7 @@
     min-width: 150px;
     padding: 4px;
     border-radius: 14px;
-    background: #fff;
+    background: var(--surface);
     box-shadow:
       0 4px 12px rgb(0 0 0 / 0.08),
       0 12px 32px rgb(0 0 0 / 0.08);
@@ -238,11 +238,11 @@
     border-radius: 10px;
     font-size: 13px;
     text-align: left;
-    color: #1c1c1e;
+    color: var(--text);
   }
 
   .menu button:hover {
-    background: rgb(0 0 0 / 0.05);
+    background: var(--hover);
   }
 
   .menu .danger {

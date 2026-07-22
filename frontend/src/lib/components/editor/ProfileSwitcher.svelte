@@ -72,7 +72,7 @@
       {#if editing}
         <!-- svelte-ignore a11y_autofocus -->
         <input
-          class="w-full rounded-xl border border-black/10 px-2 py-1 text-page-heading"
+          class="w-full rounded-xl border border-app-border px-2 py-1 text-page-heading"
           bind:value={draft}
           onblur={commitRename}
           onkeydown={(e) => {
@@ -92,14 +92,14 @@
           {current?.name ?? '—'}
         </button>
       {/if}
-      <p class="text-label text-surface-muted">
+      <p class="text-label text-app-muted">
         {#if current?.active}Profil actif{:else}Inactif{/if}
       </p>
     </div>
 
     <button
       type="button"
-      class="grid size-11 place-items-center rounded-pill hover:bg-black/5"
+      class="grid size-11 place-items-center rounded-pill hover:bg-app-hover"
       onclick={() => (open = !open)}
       aria-expanded={open}
       aria-label="Changer de profil"
@@ -109,12 +109,12 @@
   </div>
 
   {#if open}
-    <ul class="flex flex-col gap-1 rounded-2xl bg-black/[0.03] p-2">
+    <ul class="flex flex-col gap-1 rounded-2xl bg-app-sunken p-2">
       {#each profiles as profile (profile.id)}
         <li class="flex items-center gap-1">
           <button
             type="button"
-            class="flex h-10 min-w-0 flex-1 items-center gap-2 rounded-xl px-2 text-left text-body hover:bg-black/5"
+            class="flex h-10 min-w-0 flex-1 items-center gap-2 rounded-xl px-2 text-left text-body hover:bg-app-hover"
             class:font-semibold={profile.id === current?.id}
             onclick={() => {
               open = false;
@@ -130,9 +130,9 @@
           {#if profiles.length > 1}
             <button
               type="button"
-              class="grid size-9 place-items-center rounded-lg hover:bg-black/5"
+              class="grid size-9 place-items-center rounded-lg hover:bg-app-hover"
               class:text-cat-stream-accent-deep={confirmingId === profile.id}
-              class:text-surface-muted={confirmingId !== profile.id}
+              class:text-app-muted={confirmingId !== profile.id}
               onclick={() => armDelete(profile.id)}
               aria-label={confirmingId === profile.id
                 ? `Confirmer la suppression de ${profile.name}`
@@ -155,7 +155,7 @@
   {#if creating}
     <!-- svelte-ignore a11y_autofocus -->
     <input
-      class="h-10 rounded-xl border border-black/15 px-3 text-body"
+      class="h-10 rounded-xl border border-app-border px-3 text-body"
       placeholder="Nom du profil"
       bind:value={newName}
       onblur={submitCreate}
@@ -172,7 +172,7 @@
   {:else}
     <button
       type="button"
-      class="flex h-10 items-center justify-center gap-2 rounded-xl border border-dashed border-black/15 text-label text-surface-muted hover:bg-black/5"
+      class="flex h-10 items-center justify-center gap-2 rounded-xl border border-dashed border-app-border text-label text-app-muted hover:bg-app-hover"
       onclick={() => (creating = true)}
     >
       <i class="ph ph-plus" aria-hidden="true"></i>

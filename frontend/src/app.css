@@ -5,6 +5,36 @@
 @import '@phosphor-icons/web/regular';
 @import '@phosphor-icons/web/duotone';
 
+/* Dark mode is driven by data-theme on <html>, not the OS setting, so the
+   in-app toggle wins. This makes `dark:*` utilities respond to it. */
+@custom-variant dark (&:where([data-theme='dark'] *));
+
+/* --------------------------------------------------------------------------
+   Semantic surface tokens. Category pastels stay vivid in both modes (they're
+   the point); only the neutral chrome flips. Night values come from theme.ts.
+   -------------------------------------------------------------------------- */
+:root {
+  --bg: #faf9f7;
+  --surface: #ffffff;
+  --surface-sunken: #f4f3f1;
+  --text: #1c1c1e;
+  --muted: #8e8e93;
+  --border: rgb(0 0 0 / 0.1);
+  --hover: rgb(0 0 0 / 0.05);
+  color-scheme: light;
+}
+
+:root[data-theme='dark'] {
+  --bg: #1c1c1e;
+  --surface: #2c2c2e;
+  --surface-sunken: #262628;
+  --text: #f2f2f7;
+  --muted: #98989f;
+  --border: rgb(255 255 255 / 0.14);
+  --hover: rgb(255 255 255 / 0.08);
+  color-scheme: dark;
+}
+
 /* --------------------------------------------------------------------------
    Kiosk hardening — the Nest Hub is a fixed 1280x800 touch panel with no
    pointer, no keyboard and no scrollbars.
@@ -12,9 +42,14 @@
 
 html,
 body {
-  @apply bg-surface-day text-surface-text-day font-sans;
+  @apply font-sans;
+  background: var(--bg);
+  color: var(--text);
   height: 100%;
   overflow: hidden;
+  transition:
+    background-color 200ms ease,
+    color 200ms ease;
   /* Kills the 300ms tap delay without disabling accessibility zoom gestures. */
   touch-action: manipulation;
   -webkit-tap-highlight-color: transparent;

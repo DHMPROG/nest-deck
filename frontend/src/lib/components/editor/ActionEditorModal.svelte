@@ -545,7 +545,7 @@
     max-height: 88vh;
     padding: 24px;
     border-radius: 32px;
-    background: #fff;
+    background: var(--surface);
     box-shadow:
       0 4px 12px rgb(0 0 0 / 0.08),
       0 12px 32px rgb(0 0 0 / 0.08);
@@ -593,12 +593,12 @@
   .field select,
   .field textarea {
     padding: 10px;
-    border: 1px solid rgb(0 0 0 / 0.12);
+    border: 1px solid var(--border);
     border-radius: 12px;
     font-size: 15px;
     font-weight: 400;
     font-family: inherit;
-    background: #fff;
+    background: var(--surface);
   }
 
   .field textarea {
@@ -609,14 +609,14 @@
 
   .field small {
     font-weight: 400;
-    color: #8e8e93;
+    color: var(--muted);
     line-height: 1.45;
   }
 
   .field code {
     padding: 1px 4px;
     border-radius: 4px;
-    background: rgb(0 0 0 / 0.05);
+    background: var(--hover);
     font-size: 12px;
   }
 
@@ -626,7 +626,7 @@
     flex-direction: column;
     gap: 6px;
     padding: 6px;
-    border: 1px solid rgb(0 0 0 / 0.1);
+    border: 1px solid var(--border);
     border-radius: 12px;
     background: rgb(0 0 0 / 0.02);
   }
@@ -643,7 +643,7 @@
     gap: 4px;
     padding: 4px 8px;
     border-radius: 8px;
-    background: rgb(0 0 0 / 0.05);
+    background: var(--hover);
     font-size: 12px;
   }
 
@@ -660,7 +660,7 @@
     direction: rtl; /* keep the deepest folder visible when it overflows */
     font-size: 12px;
     font-weight: 400;
-    color: #8e8e93;
+    color: var(--muted);
   }
 
   .picker-list {
@@ -691,7 +691,7 @@
     padding: 8px;
     font-size: 13px;
     font-weight: 400;
-    color: #8e8e93;
+    color: var(--muted);
   }
 
   .browse-btn {
@@ -703,11 +703,11 @@
     border-radius: 8px;
     border: 1px dashed rgb(0 0 0 / 0.15);
     font-size: 13px;
-    color: #8e8e93;
+    color: var(--muted);
   }
 
   .browse-btn:hover {
-    background: rgb(0 0 0 / 0.04);
+    background: var(--hover);
   }
 
   /* Set apart so it is obvious these fields create something new. */
@@ -767,7 +767,7 @@
   }
 
   .ghost {
-    background: rgb(0 0 0 / 0.05);
+    background: var(--hover);
   }
 
   .primary {

@@ -40,11 +40,11 @@
 <div class="flex min-h-0 flex-col gap-3">
   <label class="relative block shrink-0">
     <i
-      class="ph ph-magnifying-glass pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-surface-muted"
+      class="ph ph-magnifying-glass pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-app-muted"
       aria-hidden="true"
     ></i>
     <input
-      class="h-11 w-full rounded-pill border border-black/10 bg-black/[0.02] pr-3 pl-9 text-body"
+      class="h-11 w-full rounded-pill border border-app-border bg-app-sunken pr-3 pl-9 text-body"
       placeholder="Rechercher une action"
       bind:value={query}
       aria-label="Rechercher une action"
@@ -53,7 +53,7 @@
 
   <div class="flex min-h-0 flex-col gap-4 overflow-y-auto">
     {#if groups.length === 0}
-      <p class="text-label text-surface-muted">Aucune action ne correspond.</p>
+      <p class="text-label text-app-muted">Aucune action ne correspond.</p>
     {:else}
       {#each groups as group (group.category.id)}
         <CategorySection
@@ -68,7 +68,7 @@
 
   <button
     type="button"
-    class="flex h-11 shrink-0 items-center justify-center gap-2 rounded-xl border border-dashed border-black/15 text-label text-surface-muted hover:bg-black/5"
+    class="flex h-11 shrink-0 items-center justify-center gap-2 rounded-xl border border-dashed border-app-border text-label text-app-muted hover:bg-app-hover"
     onclick={oncreate}
   >
     <i class="ph ph-plus" aria-hidden="true"></i>

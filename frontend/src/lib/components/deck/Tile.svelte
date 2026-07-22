@@ -250,7 +250,7 @@
     display: grid;
     place-items: center;
     border: 2px dashed color-mix(in srgb, var(--accent) 25%, transparent);
-    color: #8e8e93;
+    color: var(--muted);
     opacity: 0.55;
     cursor: pointer;
   }

@@ -150,7 +150,7 @@
     max-height: 80vh;
     padding: 24px;
     border-radius: 32px;
-    background: #fff;
+    background: var(--surface);
     box-shadow:
       0 4px 12px rgb(0 0 0 / 0.08),
       0 12px 32px rgb(0 0 0 / 0.08);

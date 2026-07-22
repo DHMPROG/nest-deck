@@ -62,7 +62,7 @@
 </script>
 
 <div
-  class="grid aspect-[1280/660] w-full gap-4 rounded-container bg-black/[0.02] p-5"
+  class="grid aspect-[1280/660] w-full gap-4 rounded-container bg-app-sunken p-5"
   style="grid-template-columns: repeat({grid.cols}, 1fr); grid-template-rows: repeat({grid.rows}, 1fr)"
   use:dndzone={{ items, flipDurationMs: 160, dropTargetStyle: {}, type: 'editor-tiles' }}
   onconsider={handleConsider}

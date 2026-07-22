@@ -100,7 +100,7 @@
 
       {#if showProfiles}
         <ul
-          class="absolute top-14 left-0 z-20 flex min-w-56 flex-col gap-1 rounded-container bg-white p-2 shadow-hover"
+          class="absolute top-14 left-0 z-20 flex min-w-56 flex-col gap-1 rounded-container bg-app-surface p-2 shadow-hover"
           transition:fade={{ duration: 120 }}
           role="menu"
         >
@@ -169,7 +169,7 @@
   href="/editor"
   target="_blank"
   rel="noopener"
-  class="fixed right-3 bottom-3 grid size-11 place-items-center rounded-pill text-surface-muted opacity-40"
+  class="fixed right-3 bottom-3 grid size-11 place-items-center rounded-pill text-app-muted opacity-40"
   aria-label="Ouvrir l'éditeur"
 >
   <i class="ph ph-gear text-xl" aria-hidden="true"></i>

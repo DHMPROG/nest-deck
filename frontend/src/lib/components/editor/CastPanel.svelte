@@ -198,7 +198,7 @@
   }
 
   .trigger:hover {
-    background: rgb(0 0 0 / 0.05);
+    background: var(--hover);
   }
 
   .trigger.on {
@@ -210,7 +210,7 @@
     width: 8px;
     height: 8px;
     border-radius: 999px;
-    background: #8e8e93;
+    background: var(--muted);
     flex-shrink: 0;
   }
 
@@ -226,10 +226,10 @@
     width: 300px;
     padding: 12px;
     border-radius: 18px;
-    background: #fff;
+    background: var(--surface);
     box-shadow:
       0 4px 12px rgb(0 0 0 / 0.08),
-      0 12px 32px rgb(0 0 0 / 0.1);
+      0 12px 32px var(--border);
   }
 
   .panel header {
@@ -250,7 +250,7 @@
   }
 
   .ghost:disabled {
-    color: #8e8e93;
+    color: var(--muted);
   }
 
   .current {
@@ -313,7 +313,7 @@
   }
 
   .device:hover {
-    background: rgb(0 0 0 / 0.05);
+    background: var(--hover);
   }
 
   .device.active {
@@ -330,14 +330,14 @@
 
   .device small {
     font-size: 11px;
-    color: #8e8e93;
+    color: var(--muted);
   }
 
   .hint,
   .error {
     padding: 10px;
     font-size: 13px;
-    color: #8e8e93;
+    color: var(--muted);
   }
 
   .error {

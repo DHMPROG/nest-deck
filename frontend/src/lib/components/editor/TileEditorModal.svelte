@@ -95,7 +95,7 @@
     >
       <!-- Preview, exactly as the Deck will render it. -->
       <div class="preview-pane">
-        <p class="text-label uppercase tracking-wide text-surface-muted">Aperçu</p>
+        <p class="text-label uppercase tracking-wide text-app-muted">Aperçu</p>
         <div
           class="preview-tile"
           style="background: {palette.bg}; color: {palette.text}"
@@ -227,7 +227,7 @@
     width: min(760px, 90vw);
     padding: 24px;
     border-radius: 32px;
-    background: #fff;
+    background: var(--surface);
     box-shadow:
       0 4px 12px rgb(0 0 0 / 0.08),
       0 12px 32px rgb(0 0 0 / 0.08);
@@ -286,16 +286,16 @@
   .field select {
     height: 40px;
     padding: 0 10px;
-    border: 1px solid rgb(0 0 0 / 0.12);
+    border: 1px solid var(--border);
     border-radius: 12px;
     font-size: 15px;
     font-weight: 400;
-    background: #fff;
+    background: var(--surface);
   }
 
   .field small {
     font-weight: 400;
-    color: #8e8e93;
+    color: var(--muted);
   }
 
   .reset {
@@ -328,14 +328,14 @@
     width: 100%;
     padding: 10px 12px;
     border-radius: 14px;
-    background: rgb(0 0 0 / 0.04);
+    background: var(--hover);
     font-size: 13px;
     font-weight: 600;
     text-align: left;
   }
 
   .configure:hover {
-    background: rgb(0 0 0 / 0.07);
+    background: var(--hover);
   }
 
   .configure span {
@@ -346,7 +346,7 @@
   .configure small {
     display: block;
     font-weight: 400;
-    color: #8e8e93;
+    color: var(--muted);
   }
 
   .actions {
@@ -365,7 +365,7 @@
   }
 
   .ghost {
-    background: rgb(0 0 0 / 0.05);
+    background: var(--hover);
   }
 
   .primary {

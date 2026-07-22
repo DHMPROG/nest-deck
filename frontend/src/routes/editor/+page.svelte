@@ -9,6 +9,7 @@
   import ActionCatalog from '$lib/components/editor/ActionCatalog.svelte';
   import ActionEditorModal from '$lib/components/editor/ActionEditorModal.svelte';
   import CastPanel from '$lib/components/editor/CastPanel.svelte';
+  import { theme } from '$lib/stores/theme.svelte';
   import EditableGrid from '$lib/components/editor/EditableGrid.svelte';
   import PageList from '$lib/components/editor/PageList.svelte';
   import ProfileSwitcher from '$lib/components/editor/ProfileSwitcher.svelte';
@@ -550,16 +551,16 @@
 <svelte:window onkeydown={onKeydown} />
 
 <div class="grid h-screen place-items-center p-8 text-center min-[1024px]:hidden">
-  <p class="text-body text-surface-muted">
+  <p class="text-body text-app-muted">
     L'éditeur nécessite une fenêtre d'au moins 1024px de large.
   </p>
 </div>
 
 <div class="hidden h-screen grid-rows-[64px_1fr] min-[1024px]:grid">
   <!-- Top bar -------------------------------------------------------------- -->
-  <header class="flex items-center gap-3 border-b border-black/5 px-5">
+  <header class="flex items-center gap-3 border-b border-app-border px-5">
     <h1 class="text-page-heading">Nest Deck</h1>
-    <span class="text-label text-surface-muted">Éditeur</span>
+    <span class="text-label text-app-muted">Éditeur</span>
 
     <div class="ml-auto flex items-center gap-2">
       <CastPanel />
@@ -576,7 +577,7 @@
 
       <button
         type="button"
-        class="h-10 rounded-pill px-3 text-label hover:bg-black/5 disabled:opacity-40"
+        class="h-10 rounded-pill px-3 text-label hover:bg-app-hover disabled:opacity-40"
         onclick={undo}
         disabled={undoStack.length === 0}
         title="Ctrl+Z"
@@ -588,7 +589,7 @@
       {#if profile && !profile.active}
         <button
           type="button"
-          class="h-10 rounded-pill px-3 text-label hover:bg-black/5"
+          class="h-10 rounded-pill px-3 text-label hover:bg-app-hover"
           onclick={activateProfile}
         >
           <i class="ph ph-broadcast" aria-hidden="true"></i>
@@ -598,7 +599,7 @@
 
       <button
         type="button"
-        class="h-10 rounded-pill px-3 text-label hover:bg-black/5"
+        class="h-10 rounded-pill px-3 text-label hover:bg-app-hover"
         onclick={() => importInput?.click()}
       >
         <i class="ph ph-upload-simple" aria-hidden="true"></i> Importer
@@ -613,7 +614,7 @@
 
       <button
         type="button"
-        class="h-10 rounded-pill px-3 text-label hover:bg-black/5"
+        class="h-10 rounded-pill px-3 text-label hover:bg-app-hover"
         onclick={exportProfile}
       >
         <i class="ph ph-download-simple" aria-hidden="true"></i> Exporter
@@ -621,13 +622,23 @@
 
       <button
         type="button"
-        class="h-10 rounded-pill px-3 text-label hover:bg-black/5"
+        class="h-10 rounded-pill px-3 text-label hover:bg-app-hover"
         class:bg-black={livePreview}
         class:text-white={livePreview}
         onclick={() => (livePreview = !livePreview)}
         aria-pressed={livePreview}
       >
         <i class="ph ph-monitor-play" aria-hidden="true"></i> Live preview
+      </button>
+
+      <button
+        type="button"
+        class="grid size-10 place-items-center rounded-pill hover:bg-app-hover"
+        onclick={() => theme.toggle()}
+        aria-label={theme.mode === 'dark' ? 'Passer en clair' : 'Passer en sombre'}
+        title={theme.mode === 'dark' ? 'Mode clair' : 'Mode sombre'}
+      >
+        <i class="ph ph-{theme.mode === 'dark' ? 'sun' : 'moon'} text-lg" aria-hidden="true"></i>
       </button>
     </div>
   </header>
@@ -637,7 +648,7 @@
     class="grid min-h-0"
     style="grid-template-columns: 280px 1fr {livePreview ? '420px' : '320px'}"
   >
-    <aside class="flex min-h-0 flex-col gap-4 overflow-y-auto border-r border-black/5 p-5">
+    <aside class="flex min-h-0 flex-col gap-4 overflow-y-auto border-r border-app-border p-5">
       <ProfileSwitcher
         {profiles}
         current={profile}
@@ -663,14 +674,14 @@
       {#if activePage}
         <div class="flex items-center gap-4">
           <input
-            class="min-w-0 flex-1 rounded-xl border border-transparent px-2 py-1 text-page-heading hover:border-black/10 focus:border-black/20"
+            class="min-w-0 flex-1 rounded-xl border border-transparent px-2 py-1 text-page-heading hover:border-app-border focus:border-app-border"
             value={activePage.name}
             onchange={(event) => renamePage(event.currentTarget.value)}
             aria-label="Nom de la page"
           />
           <!-- Grid size: 3-6 rows by 5-6 columns. -->
-          <div class="flex items-center gap-2 rounded-pill bg-black/[0.04] px-3 py-1.5">
-            <i class="ph ph-grid-four text-surface-muted" aria-hidden="true"></i>
+          <div class="flex items-center gap-2 rounded-pill bg-app-sunken px-3 py-1.5">
+            <i class="ph ph-grid-four text-app-muted" aria-hidden="true"></i>
             <select
               class="rounded-lg bg-transparent text-label"
               value={activePage.rows}
@@ -681,7 +692,7 @@
                 <option value={n}>{n}</option>
               {/each}
             </select>
-            <span class="text-label text-surface-muted">×</span>
+            <span class="text-label text-app-muted">×</span>
             <select
               class="rounded-lg bg-transparent text-label"
               value={activePage.cols}
@@ -721,23 +732,23 @@
           ondropaction={placeAction}
         />
 
-        <p class="text-label text-surface-muted">
+        <p class="text-label text-app-muted">
           Glissez une action du catalogue sur un emplacement, ou faites glisser les
           tuiles entre elles pour les échanger.
         </p>
       {:else}
-        <p class="text-body text-surface-muted">
+        <p class="text-body text-app-muted">
           Aucune page. Créez-en une dans la colonne de gauche.
         </p>
       {/if}
     </main>
 
-    <aside class="flex min-h-0 flex-col gap-4 overflow-hidden border-l border-black/5 p-5">
+    <aside class="flex min-h-0 flex-col gap-4 overflow-hidden border-l border-app-border p-5">
       {#if livePreview}
         <div class="flex shrink-0 flex-col gap-2">
-          <p class="text-label uppercase tracking-wide text-surface-muted">Aperçu Deck</p>
+          <p class="text-label uppercase tracking-wide text-app-muted">Aperçu Deck</p>
           <!-- 1280x800 scaled down to the panel width. -->
-          <div class="aspect-[1280/800] w-full overflow-hidden rounded-2xl border border-black/10">
+          <div class="aspect-[1280/800] w-full overflow-hidden rounded-2xl border border-app-border">
             <iframe
               src="/"
               title="Aperçu du Deck"
