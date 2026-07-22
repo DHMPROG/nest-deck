@@ -1,21 +1,26 @@
 """Nest Deck desktop app.
 
-Runs the embedded server in a background thread, reconnects to the last Nest
-Hub, and opens a native window showing the Editor. The Deck itself lives on the
-Hub as the cast page.
+Opens a native window on the splash, boots the embedded server and reconnects
+to the last Nest Hub in the background (updating the splash status), then swaps
+the window over to the Editor. The Deck itself lives on the Hub as the cast page.
 """
 
 from __future__ import annotations
 
 import os
+import sys
 import threading
 import time
 import urllib.request
 
-from server import ROOT, create_app  # noqa: F401 - create_app re-exported
+from paths import ROOT, resource
+from server import create_app
+from splash import splash_html
 
 PORT = int(os.environ.get("NESTDECK_PORT", "8770"))
 HOST = "0.0.0.0"
+
+sys.path.insert(0, str(ROOT / "backend"))
 
 
 def _serve() -> None:
@@ -24,7 +29,7 @@ def _serve() -> None:
     uvicorn.run(create_app(), host=HOST, port=PORT, log_level="warning")
 
 
-def _wait_until_up(timeout: float = 20.0) -> bool:
+def _wait_until_up(timeout: float = 25.0) -> bool:
     deadline = time.time() + timeout
     url = f"http://127.0.0.1:{PORT}/api/health"
     while time.time() < deadline:
@@ -37,43 +42,63 @@ def _wait_until_up(timeout: float = 20.0) -> bool:
     return False
 
 
-def _autoconnect() -> None:
-    """Reconnect to the remembered Hub, if any. Best-effort, off the UI thread."""
-    import sys
+def _set_status(window, text: str) -> None:
+    """Update the splash status line, ignoring races during navigation."""
+    try:
+        window.evaluate_js(f"setStatus({text!r})")
+    except Exception:  # noqa: BLE001
+        pass
 
-    sys.path.insert(0, str(ROOT / "backend"))
-    from app.services.cast import cast_manager, lan_ip
 
-    os.environ.setdefault("DECK_URL", f"http://{lan_ip()}:{PORT}/")
-    cast_manager.autoconnect()
+def _boot(window) -> None:
+    """Runs after the GUI loop starts: wait for the server, reconnect the Hub,
+    then swap the splash for the Editor."""
+    from app.services.cast import cast_manager
+
+    if not _wait_until_up():
+        _set_status(window, "Le serveur n'a pas démarré")
+        return
+
+    # Reconnect to the remembered Hub, surfacing it on the splash.
+    saved = cast_manager.remembered()
+    if saved:
+        _set_status(window, f"Connexion à « {saved.get('name', 'l’écran')} »…")
+        cast_manager.autoconnect()
+
+    _set_status(window, "Prêt")
+    window.load_url(f"http://127.0.0.1:{PORT}/editor")
 
 
 def main() -> None:
     import webview
 
-    # Cast target = this machine on the LAN, on our port.
-    import sys
-
-    sys.path.insert(0, str(ROOT / "backend"))
     from app.services.cast import lan_ip
 
+    # The Deck cast to the Hub points back at this machine on our port.
     os.environ["DECK_URL"] = f"http://{lan_ip()}:{PORT}/"
 
+    # Start the server now so it boots in parallel with the window — the splash
+    # covers the gap. Doing it here (not in _boot) means it comes up even if the
+    # GUI is slow to initialise.
     threading.Thread(target=_serve, daemon=True).start()
-    if not _wait_until_up():
-        raise RuntimeError("le serveur interne n'a pas démarré")
 
-    # Reconnect to the Hub in the background so the window opens without waiting.
-    threading.Thread(target=_autoconnect, daemon=True).start()
-
-    webview.create_window(
+    window = webview.create_window(
         "Nest Deck",
-        f"http://127.0.0.1:{PORT}/editor",
+        html=splash_html(),
         width=1240,
         height=840,
         min_size=(1024, 700),
+        background_color="#FAF9F7",
     )
-    webview.start()
+    # `_boot` runs on a worker once the GUI is ready; webview.start blocks here.
+    # private_mode=False keeps the webview's localStorage (e.g. the dark-mode
+    # choice) across launches.
+    webview.start(
+        _boot,
+        window,
+        private_mode=False,
+        icon=str(resource("desktop/assets/NestDeck.ico")),
+    )
 
 
 if __name__ == "__main__":

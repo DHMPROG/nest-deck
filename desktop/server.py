@@ -12,13 +12,13 @@ from __future__ import annotations
 
 import os
 import sys
-from pathlib import Path
 
-ROOT = Path(__file__).resolve().parent.parent
+from paths import ROOT, resource
+
 # Make the backend package importable without installing it.
 sys.path.insert(0, str(ROOT / "backend"))
 
-FRONTEND_BUILD = ROOT / "frontend" / "build"
+FRONTEND_BUILD = resource("frontend/build")
 
 
 def create_app():
