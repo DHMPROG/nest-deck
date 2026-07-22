@@ -285,7 +285,7 @@
       <div class="body">
         <label class="field">
           <span>Nom du bouton</span>
-          <input bind:value={label} placeholder="Ex. Couper le micro" />
+          <input bind:value={label} placeholder="Ex. Couper le micro" maxlength="28" />
         </label>
 
         <div class="row">

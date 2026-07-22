@@ -139,7 +139,11 @@
 
         <label class="field">
           <span>Libellé personnalisé</span>
-          <input bind:value={label} placeholder={selected?.label ?? 'Par défaut'} />
+          <input
+            bind:value={label}
+            placeholder={selected?.label ?? 'Par défaut'}
+            maxlength="28"
+          />
         </label>
 
         <div class="field">

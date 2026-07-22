@@ -179,10 +179,16 @@
     font-size: 12px;
     font-weight: 500;
     text-align: center;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
     max-width: 100%;
+    line-height: 1.2;
+    /* Wrap onto a second line rather than truncating with an ellipsis; clamp
+       at two lines so a long label never pushes the icon around. */
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    overflow: hidden;
+    overflow-wrap: anywhere;
   }
 
   .placeholder {
