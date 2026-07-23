@@ -13,11 +13,15 @@ import os
 from pathlib import Path
 from typing import Any
 
-_DEFAULT = Path(__file__).resolve().parents[3] / "data" / "settings.json"
-_PATH = Path(os.environ.get("APP_SETTINGS", str(_DEFAULT)))
+from ..database import data_dir
+
+_PATH = Path(os.environ.get("APP_SETTINGS", str(data_dir() / "settings.json")))
 
 _DEFAULTS: dict[str, Any] = {
     "onboarded": False,
+    # The port the desktop app serves on. Read by the launcher at boot, so a
+    # change only takes effect after a restart.
+    "port": 8770,
 }
 
 

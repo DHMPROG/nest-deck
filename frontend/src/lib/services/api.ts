@@ -189,8 +189,16 @@ export const api = {
     request<{ connected: boolean }>('/cast/disconnect', { method: 'POST' }),
   castForget: () => request<{ remembered: null }>('/cast/remembered', { method: 'DELETE' }),
 
-  // -- app settings (onboarding, …) -----------------------------------------
-  getSettings: () => request<{ onboarded: boolean }>('/settings'),
-  setSettings: (body: { onboarded?: boolean }) =>
-    request<{ onboarded: boolean }>('/settings', { method: 'PATCH', ...json(body) })
+  // -- app settings (onboarding, autostart, …) ------------------------------
+  getSettings: () => request<AppSettings>('/settings'),
+  setSettings: (body: { onboarded?: boolean; autostart?: boolean; port?: number }) =>
+    request<AppSettings>('/settings', { method: 'PATCH', ...json(body) })
 };
+
+export interface AppSettings {
+  onboarded: boolean;
+  autostart: boolean;
+  autostart_supported: boolean;
+  /** Port served by the desktop app; applied at the next launch. */
+  port: number;
+}

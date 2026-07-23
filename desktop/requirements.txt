@@ -2,7 +2,7 @@
 #   python -m venv .venv
 #   .\.venv\Scripts\pip install -r desktop/requirements.txt
 # Then build the frontend once (npm run build in frontend/) and:
-#   .\.venv\Scripts\python desktop/app.py
+#   .\.venv\Scripts\python desktop/nestdeck.py
 
 # --- backend ---
 fastapi>=0.115

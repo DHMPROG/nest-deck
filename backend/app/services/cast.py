@@ -24,10 +24,11 @@ from typing import Any, Optional
 _DASHCAST_APP_ID = "84912283"
 _IDLE_APPS = {"Backdrop", "", None}
 
-# Docker sets CAST_SETTINGS=/data/cast.json; natively it lands in the repo's
-# data dir, next to deck.db.
-_DEFAULT_SETTINGS = Path(__file__).resolve().parents[3] / "data" / "cast.json"
-_SETTINGS_PATH = Path(os.environ.get("CAST_SETTINGS", str(_DEFAULT_SETTINGS)))
+# Docker sets CAST_SETTINGS=/data/cast.json; otherwise it sits next to deck.db
+# (repo data dir from source, %APPDATA%/NestDeck when packaged).
+from ..database import data_dir  # noqa: E402
+
+_SETTINGS_PATH = Path(os.environ.get("CAST_SETTINGS", str(data_dir() / "cast.json")))
 
 
 def lan_ip() -> str:
@@ -65,8 +66,19 @@ class CastManager:
     def _remember(self, device: dict) -> None:
         try:
             _SETTINGS_PATH.parent.mkdir(parents=True, exist_ok=True)
+            # host/port let us reconnect (and re-discover) without mDNS, which
+            # is unreliable on Windows: svchost and Bonjour already squat UDP
+            # 5353 and unicast replies only reach one of the bound sockets.
             _SETTINGS_PATH.write_text(
-                json.dumps({"uuid": device["uuid"], "name": device["name"]}),
+                json.dumps(
+                    {
+                        "uuid": device["uuid"],
+                        "name": device["name"],
+                        "host": device.get("host"),
+                        "port": device.get("port", 8009),
+                        "model": device.get("model", ""),
+                    }
+                ),
                 encoding="utf-8",
             )
         except OSError:
@@ -85,10 +97,63 @@ class CastManager:
             pass
 
     # -- discovery ------------------------------------------------------------
+    def _probe_lan(self, port: int = 8009, timeout: float = 0.4) -> list[str]:
+        """Hosts on the local /24 with the Cast port open.
+
+        mDNS discovery often finds nothing on Windows (UDP 5353 is contested by
+        the system resolver and Bonjour, and Wi-Fi APs filter multicast), so we
+        sweep the subnet with plain TCP connects instead — that needs nothing
+        but an outbound socket.
+        """
+        from concurrent.futures import ThreadPoolExecutor
+
+        ip = lan_ip()
+        if ip.startswith("127."):
+            return []
+        base = ip.rsplit(".", 1)[0]
+        candidates = [f"{base}.{i}" for i in range(1, 255) if f"{base}.{i}" != ip]
+
+        def is_open(host: str) -> Optional[str]:
+            try:
+                with socket.create_connection((host, port), timeout=timeout):
+                    return host
+            except OSError:
+                return None
+
+        with ThreadPoolExecutor(max_workers=64) as pool:
+            return [h for h in pool.map(is_open, candidates) if h]
+
     def scan(self, timeout: int = 6) -> list[dict]:
         import pychromecast
 
-        chromecasts, browser = pychromecast.get_chromecasts(timeout=timeout)
+        # Opt-in diagnostics: NESTDECK_CAST_DEBUG=1 dumps zeroconf's view of the
+        # scan (interfaces, packets) to cast_debug.log next to deck.db.
+        debug_handler = None
+        if os.environ.get("NESTDECK_CAST_DEBUG"):
+            import logging
+
+            debug_handler = logging.FileHandler(
+                data_dir() / "cast_debug.log", encoding="utf-8"
+            )
+            debug_handler.setFormatter(
+                logging.Formatter("%(asctime)s %(levelname)s %(name)s: %(message)s")
+            )
+            for name in ("zeroconf", "pychromecast"):
+                logger = logging.getLogger(name)
+                logger.setLevel(logging.DEBUG)
+                logger.addHandler(debug_handler)
+
+        # Direct probing does the real work; mDNS is a bonus when it happens
+        # to function. The remembered device is always probed, even if it sits
+        # outside the swept /24.
+        known_hosts = set(self._probe_lan())
+        saved = self.remembered()
+        if saved and saved.get("host"):
+            known_hosts.add(saved["host"])
+
+        chromecasts, browser = pychromecast.get_chromecasts(
+            timeout=timeout, known_hosts=sorted(known_hosts) or None
+        )
         found: dict[str, dict] = {}
         for cc in chromecasts:
             info = cc.cast_info
@@ -103,6 +168,13 @@ class CastManager:
             pychromecast.discovery.stop_discovery(browser)
         except Exception:  # noqa: BLE001
             pass
+
+        if debug_handler is not None:
+            import logging
+
+            for name in ("zeroconf", "pychromecast"):
+                logging.getLogger(name).removeHandler(debug_handler)
+            debug_handler.close()
 
         with self._lock:
             self._devices = found
@@ -121,6 +193,22 @@ class CastManager:
                 # The cached scan may be stale; try once more before giving up.
                 self.scan()
                 device = self._find(uuid, name)
+            if device is None:
+                # Last resort: the remembered device with a stored address can
+                # be reached directly, no discovery involved.
+                saved = self.remembered()
+                if (
+                    saved
+                    and saved.get("host")
+                    and (saved.get("uuid") == uuid or saved.get("name") == name)
+                ):
+                    device = {
+                        "uuid": saved["uuid"],
+                        "name": saved["name"],
+                        "model": saved.get("model", ""),
+                        "host": saved["host"],
+                        "port": saved.get("port", 8009),
+                    }
             if device is None:
                 raise LookupError("appareil introuvable sur le réseau")
 

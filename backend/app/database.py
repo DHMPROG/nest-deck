@@ -1,23 +1,37 @@
-"""Engine and session management.
+"""Engine, session management, and where mutable data lives.
 
-The database is a single SQLite file. In Docker it lives at ``/data/deck.db``
-(mounted volume); locally it defaults to ``<repo>/data/deck.db`` so that the
-dev database and the container database occupy the same logical place.
+The database is a single SQLite file. Location, in priority order:
+- ``DATABASE_URL`` env (Docker sets ``sqlite:////data/deck.db``);
+- packaged .exe: ``%APPDATA%/NestDeck/`` — a frozen bundle's own files sit in a
+  temp dir wiped on every launch, so anything mutable must live outside it;
+- from source: ``<repo>/data/``.
 """
 
 from __future__ import annotations
 
 import os
+import sys
 from pathlib import Path
 from typing import Iterator
 
 from sqlmodel import Session, SQLModel, create_engine
 
-# <repo>/backend/app/database.py -> parents[2] == <repo>
+# <repo>/backend/app/database.py -> parents[2] == <repo>. Meaningless when
+# frozen (it lands inside the PyInstaller temp dir), hence data_dir() below.
 _REPO_ROOT = Path(__file__).resolve().parents[2]
-_DEFAULT_DB_PATH = _REPO_ROOT / "data" / "deck.db"
 
-DATABASE_URL = os.environ.get("DATABASE_URL", f"sqlite:///{_DEFAULT_DB_PATH}")
+
+def data_dir() -> Path:
+    """Directory for everything mutable: deck.db, cast.json, settings.json…"""
+    override = os.environ.get("NESTDECK_DATA")
+    if override:
+        return Path(override)
+    if getattr(sys, "frozen", False):
+        return Path(os.environ.get("APPDATA", str(Path.home()))) / "NestDeck"
+    return _REPO_ROOT / "data"
+
+
+DATABASE_URL = os.environ.get("DATABASE_URL", f"sqlite:///{data_dir() / 'deck.db'}")
 
 if DATABASE_URL.startswith("sqlite:///"):
     # Make sure the directory holding the SQLite file exists before connecting.

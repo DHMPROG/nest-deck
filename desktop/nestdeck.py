@@ -13,14 +13,31 @@ import threading
 import time
 import urllib.request
 
+from firewall import ensure_rule
 from paths import ROOT, resource
 from server import create_app
 from splash import splash_html
 
-PORT = int(os.environ.get("NESTDECK_PORT", "8770"))
 HOST = "0.0.0.0"
 
 sys.path.insert(0, str(ROOT / "backend"))
+
+
+def _resolve_port() -> int:
+    """NESTDECK_PORT env wins; otherwise the port saved in the app settings
+    (editable in the Editor, applied on restart); default 8770."""
+    env = os.environ.get("NESTDECK_PORT")
+    if env:
+        return int(env)
+    from app.services import settings as app_settings
+
+    try:
+        return int(app_settings.load().get("port", 8770))
+    except (TypeError, ValueError):
+        return 8770
+
+
+PORT = _resolve_port()
 
 
 def _serve() -> None:
@@ -55,6 +72,10 @@ def _boot(window) -> None:
     then swap the splash for the Editor."""
     from app.services.cast import cast_manager
 
+    # One-time UAC prompt so the Hub can reach us; a no-op once the rule
+    # exists. Done before casting: the Hub loads the page right after.
+    ensure_rule(PORT)
+
     if not _wait_until_up():
         _set_status(window, "Le serveur n'a pas démarré")
         return
@@ -73,6 +94,10 @@ def main() -> None:
     import webview
 
     from app.services.cast import lan_ip
+
+    # Downloads are off by default in pywebview — without this the Editor's
+    # "Exporter" button silently does nothing.
+    webview.settings["ALLOW_DOWNLOADS"] = True
 
     # The Deck cast to the Hub points back at this machine on our port.
     os.environ["DECK_URL"] = f"http://{lan_ip()}:{PORT}/"

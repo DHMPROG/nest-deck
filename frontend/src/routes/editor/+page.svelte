@@ -68,18 +68,63 @@
   // -- loading ---------------------------------------------------------------
   let disconnectLive: (() => void) | null = null;
 
-  // -- onboarding ------------------------------------------------------------
+  // -- onboarding & settings -------------------------------------------------
   let showOnboarding = $state(false);
+  let settingsOpen = $state(false);
+  let autostart = $state(false);
+  let autostartSupported = $state(false);
+  let appPort = $state(8770);
+  let portDraft = $state('8770');
+  let portSaved = $state(false);
+
+  async function refreshSettings() {
+    try {
+      const s = await api.getSettings();
+      autostart = s.autostart;
+      autostartSupported = s.autostart_supported;
+      appPort = s.port;
+      portDraft = String(s.port);
+      return s;
+    } catch {
+      return null;
+    }
+  }
+
+  async function toggleAutostart() {
+    autostart = !autostart; // optimistic
+    try {
+      const s = await api.setSettings({ autostart });
+      autostart = s.autostart;
+    } catch (cause) {
+      autostart = !autostart;
+      fail(cause);
+    }
+  }
+
+  async function savePort() {
+    const value = Number(portDraft);
+    if (!Number.isInteger(value) || value < 1024 || value > 65535) {
+      portDraft = String(appPort);
+      return;
+    }
+    if (value === appPort) return;
+    try {
+      const s = await api.setSettings({ port: value });
+      appPort = s.port;
+      portDraft = String(s.port);
+      portSaved = true;
+      setTimeout(() => (portSaved = false), 3000);
+    } catch (cause) {
+      portDraft = String(appPort);
+      fail(cause);
+    }
+  }
 
   onMount(() => {
     void load();
     void (async () => {
-      try {
-        const s = await api.getSettings();
-        showOnboarding = !s.onboarded;
-      } catch {
-        /* backend not ready; skip onboarding rather than block the editor */
-      }
+      const s = await refreshSettings();
+      if (s) showOnboarding = !s.onboarded;
     })();
     // The Deck can edit tiles too (wiggle mode on the Nest Hub), so the Editor
     // subscribes as well rather than only broadcasting. Echoes of our own
@@ -662,6 +707,82 @@
       >
         <i class="ph ph-question text-lg" aria-hidden="true"></i>
       </button>
+
+      <div class="relative">
+        <button
+          type="button"
+          class="grid size-10 place-items-center rounded-pill hover:bg-app-hover"
+          onclick={() => {
+            settingsOpen = !settingsOpen;
+            if (settingsOpen) void refreshSettings();
+          }}
+          aria-label="Réglages"
+          aria-expanded={settingsOpen}
+          title="Réglages"
+        >
+          <i class="ph ph-gear text-lg" aria-hidden="true"></i>
+        </button>
+
+        {#if settingsOpen}
+          <div
+            class="absolute top-12 right-0 z-40 w-72 rounded-2xl bg-app-surface p-2 shadow-hover"
+          >
+            <button
+              type="button"
+              class="flex w-full items-center gap-3 rounded-xl p-3 text-left hover:bg-app-hover disabled:opacity-50"
+              onclick={toggleAutostart}
+              disabled={!autostartSupported}
+            >
+              <i class="ph ph-power text-xl" aria-hidden="true"></i>
+              <span class="flex-1">
+                <span class="block text-body font-medium">Démarrer avec Windows</span>
+                <span class="block text-label text-app-muted">
+                  {#if autostartSupported}
+                    Lancer Nest Deck à l'ouverture de session
+                  {:else}
+                    Disponible seulement dans l'application (.exe)
+                  {/if}
+                </span>
+              </span>
+              <span
+                class="relative h-6 w-10 shrink-0 rounded-pill transition-colors"
+                style="background: {autostart
+                  ? tokens.category.meeting.accent
+                  : 'var(--border)'}"
+              >
+                <span
+                  class="absolute top-0.5 size-5 rounded-pill bg-white transition-all"
+                  style="left: {autostart ? '1.25rem' : '0.125rem'}"
+                ></span>
+              </span>
+            </button>
+
+            <div class="flex w-full items-center gap-3 rounded-xl p-3">
+              <i class="ph ph-plugs text-xl" aria-hidden="true"></i>
+              <span class="flex-1">
+                <span class="block text-body font-medium">Port du serveur</span>
+                <span class="block text-label text-app-muted">
+                  {#if portSaved}
+                    Enregistré — redémarre l'application
+                  {:else}
+                    Appliqué au prochain démarrage
+                  {/if}
+                </span>
+              </span>
+              <input
+                type="number"
+                min="1024"
+                max="65535"
+                class="w-20 rounded-lg border border-app-border bg-transparent px-2 py-1 text-right text-body"
+                bind:value={portDraft}
+                onblur={savePort}
+                onkeydown={(e) => e.key === 'Enter' && (e.currentTarget as HTMLInputElement).blur()}
+                aria-label="Port du serveur"
+              />
+            </div>
+          </div>
+        {/if}
+      </div>
     </div>
   </header>
 

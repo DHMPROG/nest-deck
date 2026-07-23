@@ -19,8 +19,10 @@ from pathlib import Path
 
 from ..models import Action
 
+from ..database import data_dir
+
 SCOPE = "user-modify-playback-state user-read-playback-state"
-CACHE_PATH = os.environ.get("SPOTIFY_CACHE", "/data/.spotify-cache")
+CACHE_PATH = os.environ.get("SPOTIFY_CACHE", str(data_dir() / ".spotify-cache"))
 TIMEOUT_S = 6
 
 
