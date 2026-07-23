@@ -1,15 +1,16 @@
 # Nest Deck
 
-Turn a Google Nest Hub into a colourful, tactile control surface — a self-hosted
-"Stream Deck" you configure from a desktop app and cast to the Hub over your LAN.
+Turn a Google Nest Hub — or any tablet with a browser, like an iPad — into a
+colourful, tactile control surface: a self-hosted "Stream Deck" you configure
+from a desktop app and cast (or simply open) over your LAN.
 
 Tap a tile to fire an action: a keyboard macro, launch an app, an OBS scene, a
 Spotify/media key, a meeting shortcut, a webhook… Design your pages in a visual
 editor; the Hub updates live.
 
 > **Status:** functional. The desktop app runs, casts to the Hub, and every
-> action type works. Packaging into a single `.exe` is in progress — until a
-> release is published, run it from source (below).
+> action type works. Grab `NestDeck.exe` from the
+> [Releases](../../releases) page, or run from source (below).
 
 ---
 
@@ -18,6 +19,8 @@ editor; the Hub updates live.
 - **iOS-home-screen feel** — pastel tiles, springy motion, light & dark themes.
 - **Cast to the Nest Hub** — finds the device on your network and remembers it,
   reconnecting automatically on launch.
+- **No Hub? No problem** — open the deck URL on an iPad or any tablet for the
+  same touch deck in the browser.
 - **Visual editor** — drag actions onto a grid (3×5 up to 6×6 per page),
   organise pages and profiles, all changes live-sync to the Hub over SSE.
 - **Real, pre-configured actions** out of the box:
@@ -74,11 +77,25 @@ python -m venv .venv
 # ./.venv/bin/pip install -r desktop/requirements.txt
 
 # 3. Launch the desktop app (window + embedded server + auto-cast)
-.\.venv\Scripts\python desktop/app.py
+.\.venv\Scripts\python desktop/nestdeck.py
 ```
 
 The window shows the Editor. Use the **Cast** button (top right) to pick your Hub
 — it's remembered for next time.
+
+### No Nest Hub? Use an iPad (or any tablet)
+
+The Deck is just a web page, so any device on your Wi-Fi can be the control
+surface. On your iPad or Android tablet, open:
+
+```
+http://<your-PC-IP>:8770/
+```
+
+(The exact address is shown in the editor's cast panel as the deck URL.) In
+Safari, use **Share → Add to Home Screen** to get a fullscreen, app-like deck.
+Tiles still trigger everything on the PC — macros, launches, OBS — exactly as
+they would from a Hub.
 
 > A deeper guide (firewall, OBS/Spotify setup, Docker, troubleshooting) lives in
 > [`RUNNING.md`](RUNNING.md).
