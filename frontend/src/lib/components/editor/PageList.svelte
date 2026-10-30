@@ -86,26 +86,40 @@
             : ''}
           onclick={() => onselect(item.page.id)}
         >
-          <span class="size-3 shrink-0 rounded-pill" style="background: {pal.accent}"></span>
-          <span class="truncate">{item.page.name}</span>
-        </button>
-        <button
-          type="button"
-          class="grid size-9 shrink-0 place-items-center rounded-lg opacity-0 hover:bg-app-hover group-hover:opacity-100 focus:opacity-100"
-          class:!opacity-100={confirmingId === item.page.id}
-          class:text-cat-stream-accent-deep={confirmingId === item.page.id}
-          class:text-app-muted={confirmingId !== item.page.id}
-          onclick={() => armDelete(item.page.id)}
-          aria-label={confirmingId === item.page.id
-            ? `Confirmer la suppression de ${item.page.name}`
-            : `Supprimer la page ${item.page.name}`}
-          title={confirmingId === item.page.id ? 'Cliquer à nouveau pour confirmer' : 'Supprimer'}
-        >
           <i
-            class="ph {confirmingId === item.page.id ? 'ph-check' : 'ph-trash'}"
+            class="ph-duotone ph-{item.page.icon} shrink-0 text-xl"
+            style="color: {pal.accent}"
             aria-hidden="true"
           ></i>
+          <span class="truncate">{item.page.name}</span>
         </button>
+        <!-- mousedown/touchstart stay here: the row is a drag handle, and a
+             press that starts on this button must be a click, not a drag. -->
+        {#if confirmingId === item.page.id}
+          <button
+            type="button"
+            class="flex h-9 shrink-0 items-center gap-1 rounded-pill bg-cat-stream px-3 text-label font-bold text-cat-stream-accent-deep"
+            onmousedown={(event) => event.stopPropagation()}
+            ontouchstart={(event) => event.stopPropagation()}
+            onclick={() => armDelete(item.page.id)}
+            aria-label={`Confirmer la suppression de ${item.page.name}`}
+          >
+            <i class="ph ph-trash" aria-hidden="true"></i> Supprimer ?
+          </button>
+        {:else}
+          <button
+            type="button"
+            class="grid size-9 shrink-0 place-items-center rounded-lg text-app-muted opacity-0 hover:bg-app-hover group-hover:opacity-100 focus:opacity-100"
+            class:!opacity-100={item.page.id === activeId}
+            onmousedown={(event) => event.stopPropagation()}
+            ontouchstart={(event) => event.stopPropagation()}
+            onclick={() => armDelete(item.page.id)}
+            aria-label={`Supprimer la page ${item.page.name}`}
+            title="Supprimer la page"
+          >
+            <i class="ph ph-trash" aria-hidden="true"></i>
+          </button>
+        {/if}
       </li>
     {/each}
   </ul>

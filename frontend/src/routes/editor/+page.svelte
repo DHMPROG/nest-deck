@@ -12,6 +12,7 @@
   import OnboardingWizard from '$lib/components/editor/OnboardingWizard.svelte';
   import { theme } from '$lib/stores/theme.svelte';
   import EditableGrid from '$lib/components/editor/EditableGrid.svelte';
+  import IconPicker from '$lib/components/editor/IconPicker.svelte';
   import PageList from '$lib/components/editor/PageList.svelte';
   import ProfileSwitcher from '$lib/components/editor/ProfileSwitcher.svelte';
   import TileEditorModal from '$lib/components/editor/TileEditorModal.svelte';
@@ -377,6 +378,27 @@
       await loadPages();
       pushUndo('couleur', async () => {
         await api.updatePage(pageId, { color: before });
+        await loadPages();
+      });
+    } catch (cause) {
+      fail(cause);
+    }
+  }
+
+  /** Icon shown on the page's tab on the Deck. */
+  let pageIconOpen = $state(false);
+
+  async function setPageIcon(icon: string) {
+    if (!activePage) return;
+    const pageId = activePage.id;
+    const before = activePage.icon;
+    pageIconOpen = false;
+    if (icon === before) return;
+    try {
+      await api.updatePage(pageId, { icon });
+      await loadPages();
+      pushUndo('icône', async () => {
+        await api.updatePage(pageId, { icon: before });
         await loadPages();
       });
     } catch (cause) {
@@ -891,7 +913,30 @@
 
     <main class="flex min-w-0 flex-col gap-4 overflow-y-auto p-page">
       {#if activePage}
-        <div class="flex items-center gap-4">
+        <div class="relative flex items-center gap-4">
+          <button
+            type="button"
+            class="grid size-12 shrink-0 place-items-center rounded-2xl text-[28px]"
+            style="background: {categoryPalette(activePage.color).bg}; color: {categoryPalette(
+              activePage.color
+            ).accentDeep}"
+            onclick={() => (pageIconOpen = !pageIconOpen)}
+            aria-expanded={pageIconOpen}
+            aria-label="Changer l’icône de la page"
+            title="Icône de la page (onglet du Deck)"
+          >
+            <i class="ph-duotone ph-{activePage.icon}" aria-hidden="true"></i>
+          </button>
+          {#if pageIconOpen}
+            <div
+              class="absolute left-0 top-14 z-30 w-[380px] rounded-container border border-app-border bg-app-surface p-4 shadow-hover"
+            >
+              <p class="mb-2 text-label text-app-muted">Icône de la page</p>
+              {#key activePage.id}
+                <IconPicker value={activePage.icon} hint={activePage.name} onpick={setPageIcon} />
+              {/key}
+            </div>
+          {/if}
           <input
             class="min-w-0 flex-1 rounded-xl border border-transparent px-2 py-1 text-page-heading hover:border-app-border focus:border-app-border"
             value={activePage.name}
