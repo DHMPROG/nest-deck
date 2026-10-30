@@ -6,10 +6,10 @@ import asyncio
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
 
 from . import events as events_module
 from .database import DATABASE_URL, init_db
+from .guard import LocalOnlyGuard
 from .routes import (
     actions,
     cast,
@@ -43,14 +43,10 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# Single-user LAN app — no auth, permissive CORS by design (see spec non-goals).
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+# Single-user LAN app with no auth — so the one thing to keep out is a web page
+# in the user's own browser. Launcher tiles run shell commands, so a site that
+# could reach this API could run anything on the PC.
+app.add_middleware(LocalOnlyGuard)
 
 for module in (
     profiles,

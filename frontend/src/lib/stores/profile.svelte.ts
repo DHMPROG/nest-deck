@@ -6,7 +6,6 @@
 import { api, ApiError } from '$lib/services/api';
 import { subscribeToEvents } from '$lib/services/sse';
 import type { Page, Profile, TileSlot } from '$lib/types';
-import { GRID } from '$lib/theme';
 
 class DeckState {
   profiles = $state<Profile[]>([]);
@@ -67,15 +66,12 @@ class DeckState {
         if (page_id === this.activePage?.id) void this.refreshTiles();
       },
 
-      page_updated: () => {
-        if (this.#localWrites > 0) return;
-        void this.reloadPages();
-      },
+      // Not suppressed during local writes: these refetch names and order, not
+      // the grid a drag is moving, and dropping them would lose an Editor
+      // change made at the same moment.
+      page_updated: () => void this.reloadPages(),
 
-      profile_updated: () => {
-        if (this.#localWrites > 0) return;
-        void this.reloadProfiles();
-      },
+      profile_updated: () => void this.reloadProfiles(),
 
       profile_activated: () => {
         // A different profile took over: reload everything.
@@ -224,11 +220,6 @@ class DeckState {
     } catch (cause) {
       this.#fail(cause);
     }
-  }
-
-  /** Index in the flat 15-slot array for a grid position. */
-  static indexOf(row: number, col: number) {
-    return row * GRID.cols + col;
   }
 }
 

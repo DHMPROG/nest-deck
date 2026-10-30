@@ -11,6 +11,7 @@ import asyncio
 from typing import Any, Optional
 
 _main_loop: Optional[asyncio.AbstractEventLoop] = None
+_QUEUE_LIMIT = 100
 
 
 class Broadcaster:
@@ -20,7 +21,10 @@ class Broadcaster:
         self._subscribers: set[asyncio.Queue] = set()
 
     def subscribe(self) -> asyncio.Queue:
-        queue: asyncio.Queue = asyncio.Queue()
+        # Bounded: a client that stopped reading (a Hub asleep on a half-open
+        # socket) must not grow memory forever. It reloads every 9 minutes and
+        # refetches everything then, so dropping its backlog loses nothing.
+        queue: asyncio.Queue = asyncio.Queue(maxsize=_QUEUE_LIMIT)
         self._subscribers.add(queue)
         return queue
 
@@ -33,7 +37,10 @@ class Broadcaster:
 
     async def publish(self, event: dict[str, Any]) -> None:
         for queue in list(self._subscribers):
-            await queue.put(event)
+            try:
+                queue.put_nowait(event)
+            except asyncio.QueueFull:
+                pass
 
 
 broadcaster = Broadcaster()

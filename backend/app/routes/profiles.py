@@ -38,7 +38,7 @@ def update_profile(
     if profile is None:
         raise HTTPException(404, "profile not found")
 
-    for field, value in body.model_dump(exclude_unset=True).items():
+    for field, value in body.model_dump(exclude_unset=True, exclude_none=True).items():
         setattr(profile, field, value)
 
     session.add(profile)

@@ -28,6 +28,9 @@ function streamingApiProxy(): Plugin {
       server.middlewares.use((req, res, next) => {
         if (!req.url?.startsWith('/api')) return next();
 
+        // The backend rejects an Origin that differs from Host; this proxy
+        // rewrites Host, so drop Origin too (the browser already vouched for it).
+        const { origin: _origin, ...headers } = req.headers;
         const proxyReq = http.request(
           {
             protocol: target.protocol,
@@ -35,7 +38,7 @@ function streamingApiProxy(): Plugin {
             port: target.port,
             path: req.url,
             method: req.method,
-            headers: { ...req.headers, host: target.host }
+            headers: { ...headers, host: target.host }
           },
           (proxyRes) => {
             res.writeHead(proxyRes.statusCode ?? 502, proxyRes.headers);
@@ -62,7 +65,13 @@ export default defineConfig({
     // Dev only. `VITE_API_BASE` can stay empty locally because everything is
     // same-origin through this proxy.
     proxy: {
-      '/api': { target: API_TARGET, changeOrigin: true }
+      '/api': {
+        target: API_TARGET,
+        changeOrigin: true,
+        // changeOrigin rewrites Host; drop Origin so the backend's
+        // same-origin check sees a matching pair.
+        configure: (proxy) => proxy.on('proxyReq', (req) => req.removeHeader('origin'))
+      }
     }
   },
   preview: { port: 4173 }

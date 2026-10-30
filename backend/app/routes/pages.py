@@ -30,10 +30,18 @@ def _resequence(session: Session, profile_id: str) -> None:
         session.add(page)
 
 
+def _validate_grid(rows: int, cols: int) -> None:
+    if not (MIN_ROWS <= rows <= MAX_ROWS):
+        raise HTTPException(422, f"rows must be between {MIN_ROWS} and {MAX_ROWS}")
+    if not (MIN_COLS <= cols <= MAX_COLS):
+        raise HTTPException(422, f"cols must be between {MIN_COLS} and {MAX_COLS}")
+
+
 @router.post("/pages", status_code=201)
 def create_page(body: PageCreate, session: Session = Depends(get_session)):
     if session.get(Profile, body.profile_id) is None:
         raise HTTPException(404, "profile not found")
+    _validate_grid(body.rows, body.cols)
 
     if body.position is None:
         existing = session.exec(
@@ -68,14 +76,12 @@ def update_page(
     if page is None:
         raise HTTPException(404, "page not found")
 
-    data = body.model_dump(exclude_unset=True)
+    # Every page field is required on the row, so an explicit null means "unchanged".
+    data = body.model_dump(exclude_unset=True, exclude_none=True)
 
     rows = data.get("rows", page.rows)
     cols = data.get("cols", page.cols)
-    if not (MIN_ROWS <= rows <= MAX_ROWS):
-        raise HTTPException(422, f"rows must be between {MIN_ROWS} and {MAX_ROWS}")
-    if not (MIN_COLS <= cols <= MAX_COLS):
-        raise HTTPException(422, f"cols must be between {MIN_COLS} and {MAX_COLS}")
+    _validate_grid(rows, cols)
 
     # Shrinking leaves tiles outside the new bounds unreachable, so clear them
     # rather than keeping invisible rows that would resurface on a re-grow.
