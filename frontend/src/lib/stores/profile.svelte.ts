@@ -1,6 +1,11 @@
 /**
  * Deck state: the active profile, its pages, and the 15 slots of the current
  * page. This is the single place that talks to the API for the Deck view.
+ *
+ * Everything is fetched once, every page's tiles included, then only refetched
+ * when the backend announces a change over SSE. Switching pages reads the
+ * cache, so the Deck keeps working (and shows no error) while the PC is off;
+ * when the stream comes back, one full reload catches up on what was missed.
  */
 
 import { api, ApiError } from '$lib/services/api';
@@ -30,9 +35,19 @@ class DeckState {
    */
   #localWrites = 0;
 
+  /** Slots of every page of the profile, by page id. */
+  #tiles = new Map<string, TileSlot[]>();
+  /** Set when the stream dropped: the next open must catch up. */
+  #missedEvents = false;
+
   #fail(cause: unknown) {
+    // An unreachable backend is a state, not an error: the status dot shows it
+    // and the cached deck stays usable.
+    if (cause instanceof ApiError && cause.status === 0) {
+      this.online = false;
+      return;
+    }
     this.error = cause instanceof ApiError ? cause.message : String(cause);
-    if (cause instanceof ApiError && cause.status === 0) this.online = false;
   }
 
   /** Run a local write with live updates suppressed until its echo passes. */
@@ -57,13 +72,20 @@ class DeckState {
       onopen: () => {
         this.online = true;
         this.error = null;
+        if (this.#missedEvents) {
+          this.#missedEvents = false;
+          void this.load();
+        }
       },
-      onerror: () => (this.online = false),
+      onerror: () => {
+        this.online = false;
+        this.#missedEvents = true;
+      },
 
       tile_updated: ({ page_id }) => {
         if (this.#localWrites > 0) return;
-        // Only the current page is on screen; anything else can wait.
-        if (page_id === this.activePage?.id) void this.refreshTiles();
+        // Off-screen pages too, so switching to them later needs no fetch.
+        void this.refreshTiles(page_id);
       },
 
       // Not suppressed during local writes: these refetch names and order, not
@@ -83,7 +105,7 @@ class DeckState {
         if (this.#localWrites > 0) return;
         // Tiles inline their action, so a renamed or retyped action changes
         // what is on screen even though no tile row was touched.
-        void this.refreshTiles();
+        void this.#loadAllTiles();
       }
     });
   }
@@ -96,7 +118,8 @@ class DeckState {
       this.pages = await api.listPages(this.profile.id);
       const index = this.pages.findIndex((p) => p.id === current);
       this.pageIndex = index >= 0 ? index : Math.min(this.pageIndex, this.pages.length - 1);
-      await this.refreshTiles();
+      // A page may have been added, resized or removed: refetch them all.
+      await this.#loadAllTiles();
     } catch (cause) {
       this.#fail(cause);
     }
@@ -124,7 +147,7 @@ class DeckState {
       }
       this.pages = await api.listPages(this.profile.id);
       this.pageIndex = Math.min(this.pageIndex, Math.max(this.pages.length - 1, 0));
-      await this.refreshTiles();
+      await this.#loadAllTiles();
       this.online = true;
       this.error = null;
     } catch (cause) {
@@ -134,14 +157,23 @@ class DeckState {
     }
   }
 
-  async refreshTiles() {
-    const page = this.activePage;
-    if (!page) {
+  /** Fetch every page's slots in one go; the cache then serves page changes. */
+  async #loadAllTiles() {
+    const lists = await Promise.all(this.pages.map((p) => api.listTiles(p.id)));
+    this.#tiles = new Map(this.pages.map((p, i) => [p.id, lists[i]]));
+    this.slots = this.#tiles.get(this.activePage?.id ?? '') ?? [];
+  }
+
+  /** Refetch one page (the active one by default) and update the cache. */
+  async refreshTiles(pageId = this.activePage?.id) {
+    if (!pageId) {
       this.slots = [];
       return;
     }
     try {
-      this.slots = await api.listTiles(page.id);
+      const slots = await api.listTiles(pageId);
+      this.#tiles.set(pageId, slots);
+      if (pageId === this.activePage?.id) this.slots = slots;
       this.online = true;
       this.error = null;
     } catch (cause) {
@@ -153,7 +185,9 @@ class DeckState {
     if (index < 0 || index >= this.pages.length || index === this.pageIndex) return;
     this.direction = index > this.pageIndex ? 1 : -1;
     this.pageIndex = index;
-    await this.refreshTiles();
+    const cached = this.#tiles.get(this.pages[index].id);
+    if (cached) this.slots = cached;
+    else await this.refreshTiles();
   }
 
   nextPage() {
