@@ -46,7 +46,11 @@ def lan_ip() -> str:
 
 class CastManager:
     def __init__(self) -> None:
+        # `_lock` guards the state below and is only ever held briefly, so
+        # status() answers while a slow connect is in flight. `_connect_lock`
+        # serialises connect/disconnect, which can block for many seconds.
         self._lock = threading.RLock()
+        self._connect_lock = threading.Lock()
         self._cast: Any = None  # the connected pychromecast.Chromecast
         self._dash: Any = None  # its DashCastController
         self._device: Optional[dict] = None  # currently targeted device info
@@ -61,6 +65,19 @@ class CastManager:
             return explicit
         port = os.environ.get("DECK_PORT", "8080")
         return f"http://{lan_ip()}:{port}/"
+
+    def cast_target(self) -> str:
+        """deck_url tagged with the build's version. The Hub keeps pages in a
+        cache we cannot clear; a URL it has never seen forces a fresh copy, so
+        a rebuild can never leave it running stale code."""
+        try:
+            # Read on every cast: the frontend can be rebuilt under a running app.
+            version_file = Path(os.environ["DECK_VERSION_FILE"])
+            version = json.loads(version_file.read_text(encoding="utf-8"))["version"]
+        except (KeyError, OSError, ValueError):
+            return self.deck_url()
+        sep = "&" if "?" in self.deck_url() else "?"
+        return f"{self.deck_url()}{sep}v={version}"
 
     # -- persistence ----------------------------------------------------------
     def _remember(self, device: dict) -> None:
@@ -187,12 +204,14 @@ class CastManager:
         import pychromecast
         from pychromecast.controllers.dashcast import DashCastController
 
-        with self._lock:
-            device = self._find(uuid, name)
+        with self._connect_lock:
+            with self._lock:
+                device = self._find(uuid, name)
             if device is None:
                 # The cached scan may be stale; try once more before giving up.
                 self.scan()
-                device = self._find(uuid, name)
+                with self._lock:
+                    device = self._find(uuid, name)
             if device is None:
                 # Last resort: the remembered device with a stored address can
                 # be reached directly, no discovery involved.
@@ -229,11 +248,12 @@ class CastManager:
             dash = DashCastController()
             cast.register_handler(dash)
             time.sleep(0.5)
-            dash.load_url(self.deck_url(), force=True)
+            dash.load_url(self.cast_target(), force=True)
 
-            self._cast = cast
-            self._dash = dash
-            self._device = device
+            with self._lock:
+                self._cast = cast
+                self._dash = dash
+                self._device = device
             self._remember(device)
 
         return self.status()
@@ -243,13 +263,14 @@ class CastManager:
         with self._lock:
             if self._cast is None or self._dash is None:
                 raise RuntimeError("aucun appareil connecté")
-            self._dash.load_url(self.deck_url(), force=True)
+            self._dash.load_url(self.cast_target(), force=True)
         return self.status()
 
     def disconnect(self) -> None:
-        with self._lock:
+        with self._connect_lock:
             self._teardown()
-            self._device = None
+            with self._lock:
+                self._device = None
 
     def autoconnect(self) -> Optional[dict]:
         """Reconnect to the remembered device, if any. Best-effort."""
@@ -265,7 +286,14 @@ class CastManager:
     def status(self) -> dict:
         with self._lock:
             if self._cast is None or self._device is None:
-                return {"connected": False, "device": None, "casting": False}
+                # deck_url is still useful when nothing is cast: it's the
+                # address to open the Deck from an iPad or any other browser.
+                return {
+                    "connected": False,
+                    "device": None,
+                    "casting": False,
+                    "deck_url": self.deck_url(),
+                }
 
             app = None
             try:
@@ -292,13 +320,14 @@ class CastManager:
         return None
 
     def _teardown(self) -> None:
-        if self._cast is not None:
+        with self._lock:
+            old, self._cast, self._dash = self._cast, None, None
+        # Outside the lock: disconnect can block for its whole timeout.
+        if old is not None:
             try:
-                self._cast.disconnect(timeout=5)
+                old.disconnect(timeout=5)
             except Exception:  # noqa: BLE001
                 pass
-        self._cast = None
-        self._dash = None
 
 
 cast_manager = CastManager()

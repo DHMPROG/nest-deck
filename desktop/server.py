@@ -40,12 +40,29 @@ def create_app():
         fallback has to be in an except block."""
 
         async def get_response(self, path, scope):
+            # Starlette hands over an OS path: backslashes on Windows.
+            url_path = path.replace("\\", "/")
             try:
-                return await super().get_response(path, scope)
+                response = await super().get_response(path, scope)
             except StarletteHTTPException as exc:
-                if exc.status_code == 404:
-                    return await super().get_response("index.html", scope)
-                raise
+                # A missing build file must stay a 404. Answering with
+                # index.html made a page from an older build import HTML as
+                # JS, fail, reload and loop forever: a blank Nest Hub.
+                if exc.status_code != 404 or url_path.startswith("_app/"):
+                    raise
+                response = await super().get_response("index.html", scope)
+
+            # Without an explicit policy the webview caches index.html
+            # heuristically, and keeps running the previous build's code after
+            # an update. Hashed bundles never change under a given name.
+            if url_path.startswith("_app/immutable/"):
+                response.headers["Cache-Control"] = "public, max-age=31536000, immutable"
+            else:
+                response.headers["Cache-Control"] = "no-cache"
+            return response
+
+    # Lets the cast manager tag the Hub's URL with the build version.
+    os.environ.setdefault("DECK_VERSION_FILE", str(FRONTEND_BUILD / "_app" / "version.json"))
 
     # Mounted last, so the already-registered /api routes match first and
     # everything else falls through to the static files.

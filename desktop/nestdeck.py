@@ -67,11 +67,28 @@ def _set_status(window, text: str) -> None:
         pass
 
 
-def _boot(window) -> None:
-    """Runs after the GUI loop starts: wait for the server, reconnect the Hub,
-    then swap the splash for the Editor."""
+def _reconnect_hub(window) -> None:
+    """Reconnect to the remembered Hub in the background, retrying a couple of
+    times (it may be asleep). Never blocks the Editor from opening: if the Hub
+    can't be reached, the user just casts manually from the Editor."""
     from app.services.cast import cast_manager
 
+    saved = cast_manager.remembered()
+    if not saved:
+        return
+
+    name = saved.get("name", "l’écran")
+    for attempt in range(3):
+        if cast_manager.autoconnect() is not None:
+            return
+        # Back off before retrying; the Editor is already up meanwhile.
+        time.sleep(3 * (attempt + 1))
+    # Give up silently — the Editor's cast panel is there for a manual retry.
+
+
+def _boot(window) -> None:
+    """Runs after the GUI loop starts: wait for the server, open the Editor
+    right away, then reconnect the Hub in the background."""
     # One-time UAC prompt so the Hub can reach us; a no-op once the rule
     # exists. Done before casting: the Hub loads the page right after.
     ensure_rule(PORT)
@@ -80,14 +97,16 @@ def _boot(window) -> None:
         _set_status(window, "Le serveur n'a pas démarré")
         return
 
-    # Reconnect to the remembered Hub, surfacing it on the splash.
-    saved = cast_manager.remembered()
-    if saved:
-        _set_status(window, f"Connexion à « {saved.get('name', 'l’écran')} »…")
-        cast_manager.autoconnect()
-
+    # Open the Editor immediately — casting must never hold the window on the
+    # splash. A sleeping or absent Hub used to stall boot for ~30s.
     _set_status(window, "Prêt")
-    window.load_url(f"http://127.0.0.1:{PORT}/editor")
+    # Tagged with the build's date: a page cached by an older version (served
+    # before it sent Cache-Control) would otherwise keep loading the old code.
+    build = int((resource("frontend/build") / "index.html").stat().st_mtime)
+    window.load_url(f"http://127.0.0.1:{PORT}/editor?v={build}")
+
+    # Best-effort Hub reconnection, off the boot path.
+    threading.Thread(target=_reconnect_hub, args=(window,), daemon=True).start()
 
 
 def main() -> None:

@@ -17,6 +17,18 @@
   let scanning = $state(false);
   let busyUuid = $state<string | null>(null);
   let error = $state<string | null>(null);
+  let copied = $state(false);
+
+  async function copyDeckUrl() {
+    if (!status.deck_url) return;
+    try {
+      await navigator.clipboard.writeText(status.deck_url);
+      copied = true;
+      setTimeout(() => (copied = false), 2000);
+    } catch {
+      /* clipboard blocked — the URL is still shown for manual copy */
+    }
+  }
 
   const label = $derived(
     status.connected && status.device
@@ -175,6 +187,27 @@
 
       {#if error}
         <p class="error">{error}</p>
+      {/if}
+
+      {#if status.deck_url}
+        <div class="ipad">
+          <p class="ipad-title">
+            <i class="ph ph-device-tablet" aria-hidden="true"></i>
+            Pas d’écran&nbsp;? Ouvre sur un iPad&nbsp;/&nbsp;tablette
+          </p>
+          <button
+            type="button"
+            class="url"
+            onclick={copyDeckUrl}
+            title="Copier le lien"
+          >
+            <span class="truncate">{status.deck_url}</span>
+            <i class="ph ph-{copied ? 'check' : 'copy'}" aria-hidden="true"></i>
+          </button>
+          <p class="ipad-hint">
+            {copied ? 'Lien copié !' : 'Même Wi-Fi que ce PC. Dans Safari : Partager → Sur l’écran d’accueil.'}
+          </p>
+        </div>
       {/if}
     </div>
   {/if}
@@ -342,6 +375,51 @@
 
   .error {
     color: #c4271e;
+  }
+
+  .ipad {
+    margin-top: 10px;
+    padding-top: 10px;
+    border-top: 1px solid var(--border);
+  }
+
+  .ipad-title {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--muted);
+    margin-bottom: 7px;
+  }
+
+  .url {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    padding: 9px 10px;
+    border-radius: 10px;
+    background: #e1f3ff;
+    color: #0051d5;
+    font-size: 13px;
+    font-weight: 600;
+    text-align: left;
+  }
+
+  .url:hover {
+    background: #d3ecff;
+  }
+
+  .url span {
+    flex: 1;
+  }
+
+  .ipad-hint {
+    margin-top: 6px;
+    font-size: 11px;
+    color: var(--muted);
+    line-height: 1.35;
   }
 
   .spin {
