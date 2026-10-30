@@ -67,6 +67,8 @@ class ActionCreate(BaseModel):
     type: ActionType = ActionType.demo
     endpoint: Optional[str] = None
     params: dict[str, Any] = {}
+    # False creates a tile's private copy (import), kept out of the catalog.
+    template: bool = True
 
 
 class ActionUpdate(BaseModel):
@@ -122,6 +124,7 @@ def serialize_action(action: Optional[Action]) -> Optional[dict[str, Any]]:
         "type": action.type.value if hasattr(action.type, "value") else action.type,
         "endpoint": action.endpoint,
         "params": action.params or {},
+        "template": action.template,
     }
 
 

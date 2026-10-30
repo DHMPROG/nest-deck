@@ -147,23 +147,74 @@ def _upgrade_catalog(session: Session) -> int:
     return changed
 
 
+def _detach_tiles(session: Session) -> int:
+    """Give every tile its own copy of the action it fires.
+
+    Tiles used to point straight at catalog entries, so editing one button
+    changed every button built from the same entry. Idempotent: a tile already
+    holding a private copy is left alone.
+    """
+    from .routes.tiles import clone_action
+
+    templates = {
+        a.id: a
+        for a in session.exec(select(Action).where(Action.template == True)).all()  # noqa: E712
+    }
+    detached = 0
+    for tile in session.exec(select(Tile).where(Tile.action_id != None)).all():  # noqa: E711
+        template = templates.get(tile.action_id)
+        if template is None:
+            continue
+        copy = clone_action(template)
+        session.add(copy)
+        session.flush()
+        tile.action_id = copy.id
+        session.add(tile)
+        detached += 1
+
+    if detached:
+        session.commit()
+    return detached
+
+
+def _drop_orphan_copies(session: Session) -> int:
+    """Delete private copies no tile holds any more.
+
+    Clearing a tile keeps its copy until the next boot so that undo can put it
+    back; after a restart the undo stack is gone, and so is the reason to keep it.
+    """
+    used = {t.action_id for t in session.exec(select(Tile)).all() if t.action_id}
+    orphans = [
+        a
+        for a in session.exec(select(Action).where(Action.template == False)).all()  # noqa: E712
+        if a.id not in used
+    ]
+    for action in orphans:
+        session.delete(action)
+    if orphans:
+        session.commit()
+    return len(orphans)
+
+
 def _drop_unused_duplicates(session: Session) -> int:
     """Collapse actions that do exactly the same thing in the same category.
 
     Earlier versions added service-backed entries next to the demo ones; with
     the demos now upgraded in place, both copies fire identically and only
-    clutter the catalog. Two actions are duplicates when their category, type,
-    endpoint and params all match.
+    clutter the catalog. Two actions are duplicates only when they are
+    indistinguishable: same category, label, icon, type, endpoint and params.
+    Label and icon count, or a user's own variant of a seeded entry ("Volume +"
+    with a different name or icon) would vanish at the next boot.
 
-    A copy that a tile references is always the one kept, so nothing disappears
-    from an existing deck.
+    Only catalog templates are considered: tiles hold their own copies, which
+    are allowed to match a template exactly.
     """
-    used = {t.action_id for t in session.exec(select(Tile)).all() if t.action_id}
-
     groups: dict[tuple, list[Action]] = {}
-    for action in session.exec(select(Action)).all():
+    for action in session.exec(select(Action).where(Action.template == True)).all():  # noqa: E712
         key = (
             action.category_id,
+            action.label,
+            action.icon,
             action.type,
             action.endpoint,
             json.dumps(action.params or {}, sort_keys=True),
@@ -174,11 +225,7 @@ def _drop_unused_duplicates(session: Session) -> int:
     for copies in groups.values():
         if len(copies) < 2:
             continue
-        # Prefer keeping a copy that is already on a page.
-        copies.sort(key=lambda a: (a.id not in used, a.label))
         for extra in copies[1:]:
-            if extra.id in used:
-                continue  # never orphan a placed tile
             session.delete(extra)
             removed += 1
 
@@ -193,6 +240,8 @@ def seed() -> bool:
         if session.exec(select(Profile)).first() is not None:
             # Already seeded, but the catalog may predate the real configs.
             _upgrade_catalog(session)
+            _detach_tiles(session)
+            _drop_orphan_copies(session)
             _drop_unused_duplicates(session)
             return False
 
@@ -244,5 +293,6 @@ def seed() -> bool:
                 Tile(page_id=pages["stream"].id, action_id=action.id, row=0, col=col)
             )
         session.commit()
+        _detach_tiles(session)
 
         return True

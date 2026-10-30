@@ -22,6 +22,9 @@ _DEFAULTS: dict[str, Any] = {
     # The port the desktop app serves on. Read by the launcher at boot, so a
     # change only takes effect after a restart.
     "port": 8770,
+    # OBS WebSocket connection; empty falls back to OBS_URL / OBS_PASSWORD.
+    "obs_url": "",
+    "obs_password": "",
 }
 
 

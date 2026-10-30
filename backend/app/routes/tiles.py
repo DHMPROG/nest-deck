@@ -23,6 +23,43 @@ def _validate_slot(page: Page, row: int, col: int) -> None:
         raise HTTPException(422, f"col must be between 0 and {page.cols - 1}")
 
 
+def own_action(session: Session, action_id: str, tile_id: Optional[str] = None) -> str:
+    """Resolve the action a tile should hold: always one only that tile uses.
+
+    A catalog template is cloned, so the catalog entry acts as a starting point
+    rather than a shared pointer. A private copy is reused as is when no other
+    tile holds it (undo restoring a cleared tile), and cloned otherwise
+    (duplicating a tile).
+    """
+    action = session.get(Action, action_id)
+    if action is None:
+        raise HTTPException(404, "action not found")
+
+    if not action.template:
+        holder = session.exec(
+            select(Tile).where(Tile.action_id == action.id, Tile.id != tile_id)
+        ).first()
+        if holder is None:
+            return action.id
+
+    copy = clone_action(action)
+    session.add(copy)
+    session.flush()
+    return copy.id
+
+
+def clone_action(action: Action) -> Action:
+    return Action(
+        category_id=action.category_id,
+        label=action.label,
+        icon=action.icon,
+        type=action.type,
+        endpoint=action.endpoint,
+        params=dict(action.params or {}),
+        template=False,
+    )
+
+
 def _tile_at(session: Session, page_id: str, row: int, col: int) -> Optional[Tile]:
     return session.exec(
         select(Tile).where(Tile.page_id == page_id, Tile.row == row, Tile.col == col)
@@ -36,21 +73,24 @@ def place_tile(body: TileCreate, session: Session = Depends(get_session)):
     if page is None:
         raise HTTPException(404, "page not found")
     _validate_slot(page, body.row, body.col)
-    if body.action_id is not None and session.get(Action, body.action_id) is None:
-        raise HTTPException(404, "action not found")
 
     tile = _tile_at(session, body.page_id, body.row, body.col)
+    action_id = (
+        own_action(session, body.action_id, tile.id if tile else None)
+        if body.action_id is not None
+        else None
+    )
     if tile is None:
         tile = Tile(
             page_id=body.page_id,
             row=body.row,
             col=body.col,
-            action_id=body.action_id,
+            action_id=action_id,
             custom_label=body.custom_label,
             custom_icon=body.custom_icon,
         )
     else:
-        tile.action_id = body.action_id
+        tile.action_id = action_id
         tile.custom_label = body.custom_label
         tile.custom_icon = body.custom_icon
 
@@ -72,9 +112,12 @@ def update_tile(
         raise HTTPException(404, "tile not found")
 
     data = body.model_dump(exclude_unset=True)
-    if "action_id" in data and data["action_id"] is not None:
-        if session.get(Action, data["action_id"]) is None:
-            raise HTTPException(404, "action not found")
+    # A null action/label/icon clears it; a null position means "stay put".
+    for key in ("row", "col"):
+        if data.get(key) is None:
+            data.pop(key, None)
+    if data.get("action_id") is not None and data["action_id"] != tile.action_id:
+        data["action_id"] = own_action(session, data["action_id"], tile.id)
 
     for field in ("action_id", "custom_label", "custom_icon"):
         if field in data:

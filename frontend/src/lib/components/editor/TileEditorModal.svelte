@@ -14,8 +14,8 @@
       custom_label?: string | null;
       custom_icon?: string | null;
     }) => void;
-    /** Jump to the action's own settings (what the button actually does). */
-    onconfigure: (actionId: string) => void;
+    /** Jump to the settings of this tile's own action copy. */
+    onconfigure: () => void;
     oncancel: () => void;
   }
 
@@ -36,7 +36,12 @@
     colorOverride = '';
   });
 
-  const selected = $derived(actions.find((a) => a.id === actionId) ?? null);
+  /** The tile's own copy; picking a catalog entry instead swaps in a fresh copy. */
+  const ownAction = $derived(slot?.tile?.action ?? null);
+  const keepsOwn = $derived(!!ownAction && actionId === ownAction.id);
+  const selected = $derived(
+    keepsOwn ? ownAction : (actions.find((a) => a.id === actionId) ?? null)
+  );
 
   const preview = $derived({
     label: label.trim() || selected?.label || tileLabel(slot?.tile ?? null),
@@ -116,8 +121,13 @@
         <label class="field">
           <span>Action</span>
           <select bind:value={actionId}>
+            {#if ownAction}
+              <optgroup label="Ce bouton">
+                <option value={ownAction.id}>{ownAction.label} (réglages actuels)</option>
+              </optgroup>
+            {/if}
             {#each grouped as group (group.category.id)}
-              <optgroup label={group.category.name}>
+              <optgroup label="Modèles · {group.category.name}">
                 {#each group.items as action (action.id)}
                   <option value={action.id}>{action.label}</option>
                 {/each}
@@ -126,15 +136,20 @@
           </select>
         </label>
 
-        {#if actionId}
-          <button type="button" class="configure" onclick={() => onconfigure(actionId)}>
+        {#if keepsOwn}
+          <button type="button" class="configure" onclick={onconfigure}>
             <i class="ph ph-sliders-horizontal" aria-hidden="true"></i>
             <span>
-              Configurer « {selected?.label ?? 'cette action'} »
-              <small>Modifier ce que fait le bouton (macro, logiciel, URL…)</small>
+              Configurer ce bouton
+              <small>Ce qu’il fait (scène OBS, macro, logiciel, URL…), pour lui seul</small>
             </span>
             <i class="ph ph-caret-right" aria-hidden="true"></i>
           </button>
+        {:else if actionId}
+          <p class="replace-note">
+            <i class="ph ph-arrows-counter-clockwise" aria-hidden="true"></i>
+            En enregistrant, ce bouton repart d’une copie neuve de « {selected?.label} ».
+          </p>
         {/if}
 
         <label class="field">
@@ -350,6 +365,17 @@
   .configure small {
     display: block;
     font-weight: 400;
+    color: var(--muted);
+  }
+
+  .replace-note {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 12px;
+    border-radius: 14px;
+    background: var(--hover);
+    font-size: 13px;
     color: var(--muted);
   }
 

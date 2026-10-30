@@ -45,7 +45,7 @@ def update_category(
     if category is None:
         raise HTTPException(404, "category not found")
 
-    for field, value in body.model_dump(exclude_unset=True).items():
+    for field, value in body.model_dump(exclude_unset=True, exclude_none=True).items():
         setattr(category, field, value)
 
     session.add(category)
@@ -65,7 +65,12 @@ def delete_category(category_id: str, session: Session = Depends(get_session)):
     # Actions carry a non-nullable category, so refuse rather than cascade —
     # deleting a category should never silently take a chunk of the catalog
     # (and the tiles using it) with it.
-    used = session.exec(select(Action).where(Action.category_id == category_id)).first()
+    # Tiles' private copies do not count: they only remember where they came from.
+    used = session.exec(
+        select(Action).where(
+            Action.category_id == category_id, Action.template == True  # noqa: E712
+        )
+    ).first()
     if used is not None:
         raise HTTPException(409, "cette catégorie contient encore des actions")
 

@@ -16,6 +16,7 @@ from .routes import (
     categories,
     events,
     fire,
+    obs,
     pages,
     profiles,
     settings,
@@ -62,6 +63,7 @@ for module in (
     system,
     cast,
     settings,
+    obs,
 ):
     app.include_router(module.router, prefix="/api")
 

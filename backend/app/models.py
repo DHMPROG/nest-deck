@@ -45,6 +45,12 @@ class Category(SQLModel, table=True):
 
 
 class Action(SQLModel, table=True):
+    """A catalog template, or the private copy a tile fires.
+
+    Dropping a catalog entry on a slot clones it (``template=False``) so every
+    tile can be reconfigured without touching the catalog or its neighbours.
+    """
+
     id: str = Field(default_factory=_uuid, primary_key=True)
     category_id: str = Field(foreign_key="category.id", index=True)
     label: str
@@ -53,6 +59,8 @@ class Action(SQLModel, table=True):
     # URL for `fetch`, command for `launcher`, ws target for `obs`, ...
     endpoint: Optional[str] = None
     params: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
+    # True for catalog entries; False for a tile's own copy, hidden from the catalog.
+    template: bool = Field(default=True)
 
 
 class Profile(SQLModel, table=True):

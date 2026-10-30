@@ -3,6 +3,9 @@
 The spec only calls for `GET /api/actions`, but a deck whose catalog is frozen
 at seed time cannot be made your own — the write endpoints below let the Editor
 define custom macros and launchers.
+
+Only templates (catalog entries) are listed. A tile's own copy is reached
+through the tile it sits on, and edited with the same PATCH endpoint.
 """
 
 from __future__ import annotations
@@ -69,7 +72,7 @@ def list_actions(
     q: Optional[str] = Query(None, description="Case-insensitive label search"),
     session: Session = Depends(get_session),
 ):
-    statement = select(Action)
+    statement = select(Action).where(Action.template == True)  # noqa: E712
 
     if category:
         matches = session.exec(
@@ -106,6 +109,7 @@ def create_action(body: ActionCreate, session: Session = Depends(get_session)):
         type=body.type,
         endpoint=body.endpoint,
         params=body.params or {},
+        template=body.template,
     )
     session.add(action)
     session.commit()

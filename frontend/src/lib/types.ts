@@ -32,6 +32,11 @@ export interface Action {
   type: ActionType;
   endpoint: string | null;
   params: Record<string, unknown>;
+  /**
+   * True for catalog entries. A tile never holds one: dropping a template on a
+   * slot gives that tile its own copy (`template: false`), edited separately.
+   */
+  template: boolean;
 }
 
 export interface Profile {
@@ -106,6 +111,19 @@ export interface CastStatus {
   casting?: boolean;
   current_app?: string | null;
   deck_url?: string;
+}
+
+/** What OBS exposes to the Editor's pickers (`GET /api/obs/state`). */
+export interface ObsState {
+  connected: boolean;
+  /** host:port actually tried. */
+  address: string;
+  error?: string;
+  version?: string;
+  current_scene?: string | null;
+  scenes: { name: string; sources: string[] }[];
+  /** Mutable inputs, real devices (mic, desktop audio) first. */
+  audio_inputs: { name: string; device: boolean }[];
 }
 
 export interface FireResult {

@@ -14,6 +14,7 @@ import type {
   Category,
   FireResult,
   InstalledApp,
+  ObsState,
   Page,
   Profile,
   Tile,
@@ -87,6 +88,8 @@ export const api = {
     color: string;
     icon?: string;
     position?: number;
+    rows?: number;
+    cols?: number;
   }) => request<Page>('/pages', { method: 'POST', ...json(body) }),
   updatePage: (
     id: string,
@@ -150,6 +153,8 @@ export const api = {
     type: ActionType;
     endpoint?: string | null;
     params?: Record<string, unknown>;
+    /** false = a tile's private copy, kept out of the catalog. */
+    template?: boolean;
   }) => request<Action>('/actions', { method: 'POST', ...json(body) }),
   updateAction: (
     id: string,
@@ -172,6 +177,9 @@ export const api = {
       `/system/browse${path ? `?path=${encodeURIComponent(path)}` : ''}`
     ),
 
+  /** Scenes, sources and audio inputs of the configured OBS. Never throws on OBS being off. */
+  obsState: () => request<ObsState>('/obs/state'),
+
   // -- fire -----------------------------------------------------------------
   fire: (tileId: string) =>
     request<FireResult>(`/fire/${tileId}`, { method: 'POST' }),
@@ -191,7 +199,13 @@ export const api = {
 
   // -- app settings (onboarding, autostart, …) ------------------------------
   getSettings: () => request<AppSettings>('/settings'),
-  setSettings: (body: { onboarded?: boolean; autostart?: boolean; port?: number }) =>
+  setSettings: (body: {
+    onboarded?: boolean;
+    autostart?: boolean;
+    port?: number;
+    obs_url?: string;
+    obs_password?: string;
+  }) =>
     request<AppSettings>('/settings', { method: 'PATCH', ...json(body) })
 };
 
@@ -201,4 +215,8 @@ export interface AppSettings {
   autostart_supported: boolean;
   /** Port served by the desktop app; applied at the next launch. */
   port: number;
+  /** OBS WebSocket address; empty = ws://localhost:4455. */
+  obs_url: string;
+  /** The password itself is write-only. */
+  obs_password_set: boolean;
 }

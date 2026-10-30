@@ -7,6 +7,7 @@
    * defining your own macros and launchers is the whole point of the deck.
    */
   import IconPicker from './IconPicker.svelte';
+  import ObsActionFields from './ObsActionFields.svelte';
   import { api } from '$lib/services/api';
   import { CATEGORY_TOKENS, categoryPalette, tokens } from '$lib/theme';
   import type {
@@ -17,26 +18,36 @@
     InstalledApp
   } from '$lib/types';
 
+  type Payload = {
+    category_id: string;
+    label: string;
+    icon: string;
+    type: ActionType;
+    endpoint: string | null;
+    params: Record<string, unknown>;
+    /** Set instead of category_id when a new category should be created. */
+    newCategory?: { name: string; color: string };
+  };
+
   interface Props {
     open: boolean;
-    /** null = creating a new action. */
+    /**
+     * null = creating a new catalog entry. An action with `template: false` is
+     * a tile's own copy: saving it changes that one button, nothing else.
+     */
     action: Action | null;
     categories: Category[];
-    onsave: (payload: {
-      category_id: string;
-      label: string;
-      icon: string;
-      type: ActionType;
-      endpoint: string | null;
-      params: Record<string, unknown>;
-      /** Set instead of category_id when a new category should be created. */
-      newCategory?: { name: string; color: string };
-    }) => void;
+    onsave: (payload: Payload) => void;
+    /** Tile copies only: also file the current settings in the catalog. */
+    onsavetemplate?: (payload: Payload) => void;
     ondelete?: (action: Action) => void;
     onclose: () => void;
   }
 
-  let { open, action, categories, onsave, ondelete, onclose }: Props = $props();
+  let { open, action, categories, onsave, onsavetemplate, ondelete, onclose }: Props =
+    $props();
+
+  const isTileCopy = $derived(action !== null && action.template === false);
 
   const TYPES: { value: ActionType; label: string; hint: string }[] = [
     { value: 'pc', label: 'Macro clavier', hint: 'Envoie une combinaison de touches sur le PC.' },
@@ -68,8 +79,7 @@
   // Type-specific fields, kept separate so switching type does not lose input.
   let combo = $state('');
   let launch = $state('');
-  let obsRequest = $state('');
-  let obsArgs = $state('');
+  let obsFields = $state<ReturnType<typeof ObsActionFields>>();
   let spotifyCommand = $state('toggle');
   let spotifyValue = $state('50');
   let meetingPlatform = $state('meet');
@@ -133,7 +143,10 @@
     error = null;
 
     if (action) {
-      categoryId = action.category_id;
+      // A tile copy can outlive its category; fall back so saving still works.
+      categoryId = categories.some((c) => c.id === action.category_id)
+        ? action.category_id
+        : (categories[0]?.id ?? '');
       label = action.label;
       icon = action.icon;
       kind = action.type;
@@ -141,8 +154,6 @@
       const p = action.params ?? {};
       combo = Array.isArray(p.combo) ? (p.combo as string[]).join('+') : '';
       launch = typeof p.launch === 'string' ? p.launch : '';
-      obsRequest = typeof p.request === 'string' ? p.request : '';
-      obsArgs = p.args ? JSON.stringify(p.args, null, 2) : '';
       spotifyCommand = typeof p.command === 'string' ? p.command : 'toggle';
       spotifyValue = p.value !== undefined ? String(p.value) : '50';
       meetingPlatform = typeof p.platform === 'string' ? p.platform : 'meet';
@@ -158,9 +169,9 @@
       endpoint = '';
       combo = '';
       launch = '';
-      obsRequest = '';
-      obsArgs = '';
     }
+    suggestedLabel = '';
+    suggestedIcon = '';
   });
 
   function buildParams(): Record<string, unknown> | null {
@@ -184,20 +195,12 @@
         return { launch: launch.trim() };
       }
       case 'obs': {
-        if (!obsRequest.trim()) {
-          error = 'Indiquez la requête OBS, par exemple SetCurrentProgramScene.';
+        const built = obsFields?.build() ?? 'Réglages OBS indisponibles.';
+        if (typeof built === 'string') {
+          error = built;
           return null;
         }
-        let args: unknown = {};
-        if (obsArgs.trim()) {
-          try {
-            args = JSON.parse(obsArgs);
-          } catch {
-            error = 'Les arguments OBS ne sont pas du JSON valide.';
-            return null;
-          }
-        }
-        return { request: obsRequest.trim(), args };
+        return built;
       }
       case 'spotify':
         return spotifyCommand === 'volume'
@@ -212,29 +215,41 @@
     }
   }
 
-  function save() {
+  // What the OBS form last proposed. A label or icon still equal to it was not
+  // typed by hand, so the next suggestion may replace it.
+  let suggestedLabel = '';
+  let suggestedIcon = '';
+
+  function applySuggestion(s: { label: string; icon: string }) {
+    if (!label.trim() || label === suggestedLabel) label = s.label;
+    if (icon === 'lightning' || icon === suggestedIcon) icon = s.icon;
+    suggestedLabel = s.label;
+    suggestedIcon = s.icon;
+  }
+
+  function payload(): Payload | null {
     error = null;
     if (!label.trim()) {
       error = 'Donnez un nom au bouton.';
-      return;
+      return null;
     }
     if (!categoryId) {
       error = 'Choisissez une catégorie.';
-      return;
+      return null;
     }
     if (categoryId === NEW_CATEGORY && !newCategoryName.trim()) {
       error = 'Donnez un nom à la nouvelle catégorie.';
-      return;
+      return null;
     }
     if ((kind === 'fetch' || kind === 'open') && !endpoint.trim()) {
       error = 'Indiquez une URL.';
-      return;
+      return null;
     }
 
     const params = buildParams();
-    if (params === null) return;
+    if (params === null) return null;
 
-    onsave({
+    return {
       category_id: categoryId === NEW_CATEGORY ? '' : categoryId,
       label: label.trim(),
       icon: icon.trim() || 'lightning',
@@ -245,7 +260,17 @@
         categoryId === NEW_CATEGORY
           ? { name: newCategoryName.trim(), color: newCategoryColor }
           : undefined
-    });
+    };
+  }
+
+  function save() {
+    const built = payload();
+    if (built) onsave(built);
+  }
+
+  function saveTemplate() {
+    const built = payload();
+    if (built) onsavetemplate?.(built);
   }
 </script>
 
@@ -271,11 +296,11 @@
       class="sheet"
       role="dialog"
       aria-modal="true"
-      aria-label={action ? 'Modifier une action' : 'Nouvelle action'}
+      aria-label={isTileCopy ? 'Configurer le bouton' : action ? 'Modifier le modèle' : 'Nouveau modèle'}
     >
       <header class="head">
         <h2 class="text-page-heading">
-          {action ? 'Modifier l’action' : 'Nouvelle action'}
+          {isTileCopy ? 'Configurer le bouton' : action ? 'Modifier le modèle' : 'Nouveau modèle'}
         </h2>
         <button type="button" class="icon-btn" onclick={onclose} aria-label="Fermer">
           <i class="ph ph-x" aria-hidden="true"></i>
@@ -283,6 +308,17 @@
       </header>
 
       <div class="body">
+        <p class="scope">
+          <i class="ph ph-{isTileCopy ? 'hand-tap' : 'stack'}" aria-hidden="true"></i>
+          {#if isTileCopy}
+            Ces réglages ne concernent que ce bouton. Le modèle du catalogue et les
+            autres boutons ne changent pas.
+          {:else}
+            Modèle du catalogue : les boutons déjà posés en sont des copies et ne
+            changent pas. Seuls les prochains dépôts en profitent.
+          {/if}
+        </p>
+
         <label class="field">
           <span>Nom du bouton</span>
           <input bind:value={label} placeholder="Ex. Couper le micro" maxlength="28" />
@@ -449,15 +485,11 @@
             </label>
           {/if}
         {:else if kind === 'obs'}
-          <label class="field">
-            <span>Requête OBS</span>
-            <input bind:value={obsRequest} placeholder="SetCurrentProgramScene" />
-          </label>
-          <label class="field">
-            <span>Arguments (JSON)</span>
-            <textarea bind:value={obsArgs} rows="3" placeholder={'{ "sceneName": "Camera" }'}
-            ></textarea>
-          </label>
+          <ObsActionFields
+            bind:this={obsFields}
+            initial={action?.type === 'obs' ? (action.params ?? {}) : {}}
+            onsuggest={applySuggestion}
+          />
         {:else if kind === 'spotify'}
           <label class="field">
             <span>Commande</span>
@@ -500,7 +532,17 @@
       </div>
 
       <footer class="actions">
-        {#if action && ondelete}
+        {#if isTileCopy && onsavetemplate}
+          <button
+            type="button"
+            class="ghost"
+            onclick={saveTemplate}
+            title="Ajoute une copie de ces réglages au catalogue, pour la réutiliser"
+          >
+            <i class="ph ph-stack-plus" aria-hidden="true"></i> Ajouter au catalogue
+          </button>
+        {/if}
+        {#if action && !isTileCopy && ondelete}
           <button type="button" class="danger" onclick={() => ondelete(action)}>
             <i class="ph ph-trash" aria-hidden="true"></i> Supprimer
           </button>
@@ -590,8 +632,7 @@
   }
 
   .field input,
-  .field select,
-  .field textarea {
+  .field select {
     padding: 10px;
     border: 1px solid var(--border);
     border-radius: 12px;
@@ -599,12 +640,6 @@
     font-weight: 400;
     font-family: inherit;
     background: var(--surface);
-  }
-
-  .field textarea {
-    resize: vertical;
-    font-family: ui-monospace, monospace;
-    font-size: 13px;
   }
 
   .field small {
@@ -734,6 +769,23 @@
 
   .swatch.on {
     border-color: rgb(0 0 0 / 0.35);
+  }
+
+  .scope {
+    display: flex;
+    gap: 8px;
+    padding: 10px 12px;
+    border-radius: 12px;
+    background: var(--hover);
+    font-size: 13px;
+    line-height: 1.45;
+    color: var(--muted);
+  }
+
+  .scope i {
+    flex: none;
+    margin-top: 2px;
+    font-size: 16px;
   }
 
   .error {

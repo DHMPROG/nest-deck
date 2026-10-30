@@ -51,8 +51,12 @@
     const entry = undoStack.at(-1);
     if (!entry) return;
     undoStack = undoStack.slice(0, -1);
-    await entry.run();
-    flash(`Annulé : ${entry.label}`);
+    try {
+      await entry.run();
+      flash(`Annulé : ${entry.label}`);
+    } catch (cause) {
+      fail(cause);
+    }
   }
 
   function flash(message: string) {
@@ -176,11 +180,14 @@
   }
 
   // -- tile mutations --------------------------------------------------------
+  // Undo closures capture the page they edited: by the time Ctrl+Z is pressed
+  // the user may be looking at another page, which must not be touched.
   async function placeAction(slot: TileSlot, actionId: string) {
     const previous = slot.tile;
+    const pageId = activePageId!;
     try {
-      await api.placeTile({
-        page_id: activePageId!,
+      const placed = await api.placeTile({
+        page_id: pageId,
         row: slot.row,
         col: slot.col,
         action_id: actionId
@@ -189,7 +196,7 @@
       pushUndo('placement', async () => {
         if (previous?.action_id) {
           await api.placeTile({
-            page_id: activePageId!,
+            page_id: pageId,
             row: slot.row,
             col: slot.col,
             action_id: previous.action_id,
@@ -197,8 +204,7 @@
             custom_icon: previous.custom_icon
           });
         } else {
-          const current = slots.find((s) => s.row === slot.row && s.col === slot.col);
-          if (current?.tile) await api.clearTile(current.tile.id);
+          await api.clearTile(placed.id);
         }
         await loadTiles();
       });
@@ -216,7 +222,7 @@
       pushUndo('suppression', async () => {
         if (previous.action_id) {
           await api.placeTile({
-            page_id: activePageId!,
+            page_id: previous.page_id,
             row: slot.row,
             col: slot.col,
             action_id: previous.action_id,
@@ -335,6 +341,7 @@
   /** Resize the grid. Shrinking clears the tiles that fall outside. */
   async function setGrid(rows: number, cols: number) {
     if (!activePage) return;
+    const pageId = activePage.id;
     const before = { rows: activePage.rows, cols: activePage.cols };
     if (rows === before.rows && cols === before.cols) return;
 
@@ -344,13 +351,13 @@
       : 0;
 
     try {
-      await api.updatePage(activePage.id, { rows, cols });
+      await api.updatePage(pageId, { rows, cols });
       await loadPages();
       if (lost > 0) flash(`${lost} tuile${lost > 1 ? 's' : ''} retirée${lost > 1 ? 's' : ''}.`);
       // Not undoable when it destroyed tiles — re-growing cannot restore them.
       if (lost === 0) {
         pushUndo('taille de la grille', async () => {
-          await api.updatePage(activePage.id, before);
+          await api.updatePage(pageId, before);
           await loadPages();
         });
       } else {
@@ -363,12 +370,13 @@
 
   async function setPageColor(color: string) {
     if (!activePage) return;
+    const pageId = activePage.id;
     const before = activePage.color;
     try {
-      await api.updatePage(activePage.id, { color });
+      await api.updatePage(pageId, { color });
       await loadPages();
       pushUndo('couleur', async () => {
-        await api.updatePage(activePage.id, { color: before });
+        await api.updatePage(pageId, { color: before });
         await loadPages();
       });
     } catch (cause) {
@@ -378,12 +386,13 @@
 
   async function renamePage(name: string) {
     if (!activePage || !name.trim()) return;
+    const pageId = activePage.id;
     const before = activePage.name;
     try {
-      await api.updatePage(activePage.id, { name: name.trim() });
+      await api.updatePage(pageId, { name: name.trim() });
       await loadPages();
       pushUndo('renommage', async () => {
-        await api.updatePage(activePage.id, { name: before });
+        await api.updatePage(pageId, { name: before });
         await loadPages();
       });
     } catch (cause) {
@@ -456,17 +465,18 @@
     actionModalOpen = true;
   }
 
-  /** Configure the action sitting on a placed tile. */
+  /**
+   * Configure the action sitting on a placed tile. That is the tile's own copy
+   * (not in the catalog list), inlined on the tile itself.
+   */
   function configureTileAction(slot: TileSlot) {
-    const target = actions.find((a) => a.id === slot.tile?.action_id);
-    if (target) openActionEditor(target);
+    if (slot.tile?.action) openActionEditor(slot.tile.action);
   }
 
-  function configureActionById(actionId: string) {
-    const target = actions.find((a) => a.id === actionId);
-    if (!target) return;
+  function configureEditingTile() {
+    const slot = editingSlot;
     editingSlot = null; // close the tile modal first
-    openActionEditor(target);
+    if (slot) configureTileAction(slot);
   }
 
   async function saveAction(
@@ -488,9 +498,35 @@
       actions = await api.listActions();
       actionModalOpen = false;
       editingAction = null;
-      // A label or icon change is reflected on the tiles using it.
       await loadTiles();
-      flash(target ? 'Action mise à jour.' : 'Action créée.');
+      flash(
+        target?.template === false
+          ? 'Bouton mis à jour.'
+          : target
+            ? 'Modèle mis à jour.'
+            : 'Modèle ajouté au catalogue.'
+      );
+    } catch (cause) {
+      fail(cause);
+    }
+  }
+
+  /** From a tile's settings: keep them as a new catalog entry as well. */
+  async function saveActionAsTemplate(
+    payload: Parameters<typeof api.createAction>[0] & {
+      newCategory?: { name: string; color: string };
+    }
+  ) {
+    try {
+      const { newCategory, ...body } = payload;
+      if (newCategory) {
+        const created = await api.createCategory(newCategory);
+        body.category_id = created.id;
+        categories = await api.listCategories();
+      }
+      await api.createAction({ ...body, template: true });
+      actions = await api.listActions();
+      flash('Ajouté au catalogue.');
     } catch (cause) {
       fail(cause);
     }
@@ -517,7 +553,7 @@
     try {
       const list = await api.listPages(profile.id);
       const payload = {
-        version: 1,
+        version: 2,
         profile: { name: profile.name, icon: profile.icon },
         pages: await Promise.all(
           list.map(async (page) => ({
@@ -525,12 +561,25 @@
             color: page.color,
             icon: page.icon,
             position: page.position,
+            rows: page.rows,
+            cols: page.cols,
             tiles: (await api.listTiles(page.id))
               .filter((s) => s.tile)
               .map((s) => ({
                 row: s.row,
                 col: s.col,
                 action_label: s.tile!.action?.label ?? null,
+                action: s.tile!.action
+                  ? {
+                      label: s.tile!.action.label,
+                      icon: s.tile!.action.icon,
+                      type: s.tile!.action.type,
+                      endpoint: s.tile!.action.endpoint,
+                      params: s.tile!.action.params,
+                      category: categories.find((c) => c.id === s.tile!.action!.category_id)
+                        ?.name
+                    }
+                  : null,
                 custom_label: s.tile!.custom_label,
                 custom_icon: s.tile!.custom_icon
               }))
@@ -555,9 +604,10 @@
   async function importProfile(event: Event) {
     const file = (event.target as HTMLInputElement).files?.[0];
     if (!file) return;
+    let created: Profile | null = null;
     try {
       const payload = JSON.parse(await file.text());
-      const created = await api.createProfile({
+      created = await api.createProfile({
         name: `${payload.profile?.name ?? 'Importé'} (import)`,
         icon: payload.profile?.icon ?? 'house'
       });
@@ -567,17 +617,38 @@
           profile_id: created.id,
           name: page.name,
           color: page.color,
-          icon: page.icon
+          icon: page.icon,
+          // Older exports carry no geometry and were always 3x5.
+          rows: page.rows,
+          cols: page.cols
         });
         for (const tile of page.tiles ?? []) {
-          // Actions are matched by label — ids differ across databases.
-          const match = actions.find((a) => a.label === tile.action_label);
-          if (!match) continue;
+          let actionId: string | undefined;
+          if (tile.action?.type) {
+            // Rebuild the tile's own settings as its private copy.
+            const category =
+              categories.find((c) => c.name === tile.action.category) ?? categories[0];
+            if (!category) continue;
+            const created = await api.createAction({
+              category_id: category.id,
+              label: tile.action.label,
+              icon: tile.action.icon,
+              type: tile.action.type,
+              endpoint: tile.action.endpoint,
+              params: tile.action.params ?? {},
+              template: false
+            });
+            actionId = created.id;
+          } else {
+            // Older exports only name the action — ids differ across databases.
+            actionId = actions.find((a) => a.label === tile.action_label)?.id;
+          }
+          if (!actionId) continue;
           await api.placeTile({
             page_id: newPage.id,
             row: tile.row,
             col: tile.col,
-            action_id: match.id,
+            action_id: actionId,
             custom_label: tile.custom_label,
             custom_icon: tile.custom_icon
           });
@@ -590,6 +661,8 @@
       await loadPages();
       flash('Profil importé.');
     } catch (cause) {
+      // Don't leave a half-built profile behind.
+      if (created) await api.deleteProfile(created.id).catch(() => {});
       fail(cause);
     } finally {
       if (importInput) importInput.value = '';
@@ -597,6 +670,9 @@
   }
 
   function onKeydown(event: KeyboardEvent) {
+    // Inside a text field, Ctrl+Z is the field's own text undo.
+    const target = event.target as HTMLElement | null;
+    if (target?.closest('input, textarea, select, [contenteditable="true"]')) return;
     if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'z') {
       event.preventDefault();
       void undo();
@@ -918,6 +994,7 @@
   action={editingAction}
   {categories}
   onsave={saveAction}
+  onsavetemplate={saveActionAsTemplate}
   ondelete={deleteAction}
   onclose={() => {
     actionModalOpen = false;
@@ -931,6 +1008,6 @@
   {actions}
   pageColor={activePage?.color ?? 'pc'}
   onsave={saveTileEdit}
-  onconfigure={configureActionById}
+  onconfigure={configureEditingTile}
   oncancel={() => (editingSlot = null)}
 />
